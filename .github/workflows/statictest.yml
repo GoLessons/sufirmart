@@ -29,6 +29,9 @@ jobs:
           chmod -R +x $GITHUB_WORKSPACE/.tools/statictest
           mv $GITHUB_WORKSPACE/.tools/statictest /usr/local/bin/statictest
 
+      - name: Disable VCS stamping
+        run: echo "GOFLAGS=-buildvcs=false" >> $GITHUB_ENV
+
       - name: Run statictest
         run: |
           go vet -vettool=$(which statictest) $(go list ./... | xargs -n1 go list -f '{{.Dir}}' | xargs -n1 find -name '*.go' ! -name 'generated.go')
