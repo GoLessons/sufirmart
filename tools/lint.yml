@@ -1,0 +1,16 @@
+run:
+  timeout: 5m
+  skip-files:
+    - internal/api/generated.go
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - gofmt
+
+issues:
+  exclude-use-default: false
