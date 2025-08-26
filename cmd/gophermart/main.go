@@ -7,12 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"log"
+	"net"
 	"net/http"
-	"os"
 	"os/signal"
 	"sufirmart/internal/api"
+	"sufirmart/internal/dependencies"
+	"sufirmart/internal/logger"
+	"syscall"
 	"time"
 )
 
@@ -22,13 +26,15 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
+	c := InitContainer()
+
+	if err := run(c); err != nil {
+		c.Logger().Fatal("application error", zap.Error(err))
 	}
 }
 
-func run() (err error) {
-	rootCtx, cancelCtx := signal.NotifyContext(context.Background(), os.Interrupt)
+func run(c *dependencies.Container) (err error) {
+	rootCtx, cancelCtx := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
 	defer cancelCtx()
 
 	workGroup, ctx := errgroup.WithContext(rootCtx)
@@ -40,7 +46,7 @@ func run() (err error) {
 		defer cancelCtx()
 
 		<-ctx.Done()
-		log.Fatal("failed to gracefully shutdown the service")
+		c.Logger().Fatal("failed to gracefully shutdown the service")
 	})
 
 	// @todo init config
@@ -63,10 +69,18 @@ func run() (err error) {
 			}
 		}()
 
-		if err = server.ListenAndServe(); err != nil {
+		ln, err := net.Listen("tcp", server.Addr)
+		if err != nil {
+			return fmt.Errorf("failed to listen on %s: %w", server.Addr, err)
+		}
+
+		c.Logger().Info("server started", zap.String("addr", server.Addr))
+
+		if err = server.Serve(ln); err != nil {
 			if errors.Is(err, http.ErrServerClosed) {
-				return
+				return nil
 			}
+
 			return fmt.Errorf("listen and server has failed: %w", err)
 		}
 
@@ -75,7 +89,7 @@ func run() (err error) {
 
 	// graceful shutdown
 	workGroup.Go(func() error {
-		defer log.Print("server has been shutdown")
+		defer c.Logger().Info("server has been shutdown")
 
 		<-ctx.Done()
 
@@ -83,7 +97,7 @@ func run() (err error) {
 		defer cancelShutdownTimeoutCtx()
 
 		if err := server.Shutdown(shutdownTimeoutCtx); err != nil {
-			log.Printf("an error occurred during server shutdown: %v", err)
+			c.Logger().Error("an error occurred during server shutdown", zap.Error(err))
 		}
 
 		return nil
@@ -94,4 +108,16 @@ func run() (err error) {
 	}
 
 	return nil
+}
+
+func InitContainer() *dependencies.Container {
+	cfg := zap.NewDevelopmentConfig()
+	appLogger, err := logger.NewLogger(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	deps := dependencies.New(appLogger)
+
+	return deps
 }
