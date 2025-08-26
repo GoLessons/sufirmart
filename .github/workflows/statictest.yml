@@ -34,4 +34,4 @@ jobs:
 
       - name: Run statictest
         run: |
-          go vet -vettool=$(which statictest) $(go list ./... | xargs -n1 go list -f '{{.Dir}}' | xargs -n1 find -name '*.go' ! -name 'generated.go')
+          go vet -vettool=$(which statictest) $(go list ./... | xargs -n1 go list -f '{{range .GoFiles}}{{$.Dir}}/{{.}} {{end}}' | tr ' ' '\n' | grep -v 'internal/api/generated.go' | xargs)
