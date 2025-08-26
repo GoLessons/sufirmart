@@ -16,6 +16,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Disable VCS stamping
+        run: echo "GOFLAGS=-buildvcs=false" >> $GITHUB_ENV
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
