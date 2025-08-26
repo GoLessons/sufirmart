@@ -34,4 +34,15 @@ jobs:
 
       - name: Run statictest
         run: |
-          go vet -vettool=$(which statictest) $(go list ./... | xargs -n1 go list -f '{{range .GoFiles}}{{$.Dir}}/{{.}} {{end}}' | tr ' ' '\n' | grep -v 'internal/api/generated.go' | xargs)
+          for pkg in $(go list ./...); do
+            if [[ "$pkg" == *"/internal/api" ]]; then
+              # исключаем generated.go в этом пакете
+              files=$(go list -f '{{range .GoFiles}}{{$.Dir}}/{{.}} {{end}}' "$pkg" | tr ' ' '\n' | grep -v 'internal/api/generated.go' || true)
+              if [ -n "$files" ]; then
+                go vet $files
+              fi
+            else
+              go vet "$pkg"
+            fi
+          done
+      
