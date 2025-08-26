@@ -4,7 +4,10 @@ go 1.24.1
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
-require github.com/go-chi/chi/v5 v5.2.2
+require (
+	github.com/go-chi/chi/v5 v5.2.2
+	golang.org/x/sync v0.16.0
+)
 
 require (
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
