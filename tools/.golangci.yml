@@ -1,4 +1,7 @@
 version: "2"
+linters-settings:
+  typecheck:
+    go: "buildvcs=false"
 linters:
   exclusions:
     generated: lax
