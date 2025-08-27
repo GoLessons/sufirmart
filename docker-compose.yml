@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16.3
+    #build:
+    #  dockerfile: ./.docker/Dockerfile
+    container_name: sufirmart-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sufirmart}
+      POSTGRES_USER: ${POSTGRES_USER:-sufirmart}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sufirmart}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=ru-RU'
+      DATABASE_DSN: "user=${POSTGRES_USER:-sufirmart} dbname=${POSTGRES_DB:-sufirmart} password=${POSTGRES_PASSWORD:-sufirmart}"
+    ports:
+      - ${DB_PORT:-15432}:5432
+    #volumes:
+    #  - pgdata:/var/lib/postgresql/data/pgdata
+    #  - ./database/migrations/:/migrations/:ro
+    healthcheck:
+      test: [ 'CMD-SHELL', 'pg_isready -U sufirmart' ]
+      interval: 15s

@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
@@ -12,9 +13,11 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/signal"
 	"sufirmart/internal/api"
 	"sufirmart/internal/config"
+	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
 	"sufirmart/internal/logger"
 	"sufirmart/internal/middleware"
@@ -29,6 +32,8 @@ const (
 
 func main() {
 	c := InitContainer()
+
+	tryMigrateDB(c.Config(), c.Db(), c.Logger())
 
 	if err := run(c); err != nil {
 		c.Logger().Fatal("application error", zap.Error(err))
@@ -51,12 +56,6 @@ func run(c *dependencies.Container) (err error) {
 		c.Logger().Fatal("failed to gracefully shutdown the service")
 	})
 
-	// @todo init config
-	cfg, cfgErr := config.LoadConfig(nil)
-	if cfgErr != nil {
-		return fmt.Errorf("failed to load config: %w", cfgErr)
-	}
-
 	apiServer := api.Unimplemented{}
 	router := chi.NewMux()
 	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
@@ -65,7 +64,7 @@ func run(c *dependencies.Container) (err error) {
 
 	server := &http.Server{
 		Handler: mainHandler,
-		Addr:    cfg.ServerAddress,
+		Addr:    c.Config().ServerAddress,
 	}
 
 	// server run
@@ -125,7 +124,35 @@ func InitContainer() *dependencies.Container {
 		log.Fatal(err)
 	}
 
-	deps := dependencies.New(appLogger)
+	appConfig, cfgErr := config.LoadConfig(nil)
+	if cfgErr != nil {
+		log.Fatal("failed to load config: %w", cfgErr)
+	}
+
+	appLogger.Info("application started with config", zap.Any("config", appConfig))
+
+	dbConnection, err := db.DBFactory(appConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = dbConnection.Ping()
+	if err != nil {
+		appLogger.Error("database ping failed", zap.Error(err))
+		log.Fatal(err)
+	}
+
+	deps := dependencies.NewContainer(appLogger, appConfig, dbConnection)
 
 	return deps
+}
+
+func tryMigrateDB(cfg *config.AppConfig, dbConnection *sql.DB, serverLogger *zap.Logger) {
+	if cfg.DatabaseUri != "" {
+		migrator := db.NewMigrator(dbConnection, serverLogger)
+		err := migrator.Up()
+		if err != nil {
+			serverLogger.Error("migrations error", zap.Error(err))
+			os.Exit(1)
+		}
+	}
 }
