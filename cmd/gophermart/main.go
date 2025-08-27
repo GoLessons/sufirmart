@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os/signal"
 	"sufirmart/internal/api"
+	"sufirmart/internal/config"
 	"sufirmart/internal/dependencies"
 	"sufirmart/internal/logger"
 	"sufirmart/internal/middleware"
@@ -51,6 +52,10 @@ func run(c *dependencies.Container) (err error) {
 	})
 
 	// @todo init config
+	cfg, cfgErr := config.LoadConfig(nil)
+	if cfgErr != nil {
+		return fmt.Errorf("failed to load config: %w", cfgErr)
+	}
 
 	apiServer := api.Unimplemented{}
 	router := chi.NewMux()
@@ -60,7 +65,7 @@ func run(c *dependencies.Container) (err error) {
 
 	server := &http.Server{
 		Handler: mainHandler,
-		Addr:    "0.0.0.0:8080",
+		Addr:    cfg.ServerAddress,
 	}
 
 	// server run
