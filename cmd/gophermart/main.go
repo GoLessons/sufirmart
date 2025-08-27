@@ -16,6 +16,7 @@ import (
 	"sufirmart/internal/api"
 	"sufirmart/internal/dependencies"
 	"sufirmart/internal/logger"
+	"sufirmart/internal/middleware"
 	"syscall"
 	"time"
 )
@@ -53,7 +54,9 @@ func run(c *dependencies.Container) (err error) {
 
 	apiServer := api.Unimplemented{}
 	router := chi.NewMux()
-	mainHandler := api.HandlerFromMux(apiServer, router)
+	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
+	gzipMiddleware := middleware.NewGzipMiddleware()
+	mainHandler := gzipMiddleware(logMiddleware(api.HandlerFromMux(apiServer, router)))
 
 	server := &http.Server{
 		Handler: mainHandler,
