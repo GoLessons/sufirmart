@@ -23,10 +23,6 @@ func Error(format string, a ...any) error {
 	}
 }
 
-func wrapError(msg string, err error) error {
-	return &ConfigError{msg, err}
-}
-
 func (e *ConfigError) Error() string {
 	if e.err != nil && e.err.Error() != e.Error() {
 
