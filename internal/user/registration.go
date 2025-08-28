@@ -61,13 +61,21 @@ func (us *UserService) RegisterUser(username string, password string) error {
 		Insert(`"sufirmart"."user"`).
 		Columns("id", "login", "password").
 		Values(uid, username, hashed).
+		Suffix(`ON CONFLICT (login) DO NOTHING`).
 		ToSql()
 	if err != nil {
 		return err
 	}
 
-	if _, err = us.db.ExecContext(ctx, insSQL, insArgs...); err != nil {
+	result, err := us.db.ExecContext(ctx, insSQL, insArgs...)
+	if err != nil {
 		return err
+	}
+
+	// если вставка не удалась и не было ошибок, то такой login уже существует
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return ErrLoginAlreadyExists
 	}
 
 	return nil

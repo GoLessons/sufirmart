@@ -16,11 +16,13 @@ import (
 	"os"
 	"os/signal"
 	"sufirmart/internal/api"
+	"sufirmart/internal/auth"
 	"sufirmart/internal/config"
 	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
 	"sufirmart/internal/logger"
 	"sufirmart/internal/middleware"
+	"sufirmart/internal/user"
 	"syscall"
 	"time"
 )
@@ -56,11 +58,11 @@ func run(c *dependencies.Container) (err error) {
 		c.Logger().Fatal("failed to gracefully shutdown the service")
 	})
 
-	apiServer := api.Unimplemented{}
-	router := chi.NewMux()
-	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
-	gzipMiddleware := middleware.NewGzipMiddleware()
-	mainHandler := gzipMiddleware(logMiddleware(api.HandlerFromMux(apiServer, router)))
+	// Инициализация сервисов
+	authSvc := auth.NewAuthService(c.Db(), c.Logger())
+	userSvc := user.NewUserService(c.Db(), c.Logger())
+
+	mainHandler := InitApi(c, authSvc, userSvc)
 
 	server := &http.Server{
 		Handler: mainHandler,
@@ -115,6 +117,22 @@ func run(c *dependencies.Container) (err error) {
 	}
 
 	return nil
+}
+
+func InitApi(c *dependencies.Container, authSvc *auth.AuthService, userSvc *user.UserService) http.Handler {
+	apiServer := api.NewApi(authSvc, userSvc)
+
+	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
+	gzipMiddleware := middleware.NewGzipMiddleware()
+
+	options := api.ChiServerOptions{
+		BaseRouter: chi.NewRouter(),
+		Middlewares: map[string][]api.MiddlewareFunc{
+			"root": {gzipMiddleware, logMiddleware},
+		},
+	}
+
+	return api.Handler(apiServer, options)
 }
 
 func InitContainer() *dependencies.Container {

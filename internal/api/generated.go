@@ -100,52 +100,6 @@ type ServerInterface interface {
 	GetApiUserWithdrawals(w http.ResponseWriter, r *http.Request)
 }
 
-// Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
-
-type Unimplemented struct{}
-
-// Получение текущего баланса
-// (GET /api/user/balance)
-func (_ Unimplemented) GetApiUserBalance(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Списание баллов с накопительного счёта
-// (POST /api/user/balance/withdraw)
-func (_ Unimplemented) PostApiUserBalanceWithdraw(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Аутентификация пользователя
-// (POST /api/user/login)
-func (_ Unimplemented) PostApiUserLogin(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Получение списка загруженных заказов
-// (GET /api/user/orders)
-func (_ Unimplemented) GetApiUserOrders(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Загрузка номера заказа
-// (POST /api/user/orders)
-func (_ Unimplemented) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Регистрация пользователя
-// (POST /api/user/register)
-func (_ Unimplemented) PostApiUserRegister(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Получение информации о выводах средств
-// (GET /api/user/withdrawals)
-func (_ Unimplemented) GetApiUserWithdrawals(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // ServerInterfaceWrapper converts contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler            ServerInterface
@@ -153,7 +107,7 @@ type ServerInterfaceWrapper struct {
 	ErrorHandlerFunc   func(w http.ResponseWriter, r *http.Request, err error)
 }
 
-type MiddlewareFunc func(http.Handler) http.Handler
+type MiddlewareFunc = func(http.Handler) http.Handler
 
 // GetApiUserBalance operation middleware
 func (siw *ServerInterfaceWrapper) GetApiUserBalance(w http.ResponseWriter, r *http.Request) {
@@ -352,34 +306,14 @@ func (e *TooManyValuesForParamError) Error() string {
 	return fmt.Sprintf("Expected one value for %s, got %d", e.ParamName, e.Count)
 }
 
-// Handler creates http.Handler with routing matching OpenAPI spec.
-func Handler(si ServerInterface) http.Handler {
-	return HandlerWithOptions(si, ChiServerOptions{})
-}
-
 type ChiServerOptions struct {
 	BaseURL          string
 	BaseRouter       chi.Router
-	Middlewares      []MiddlewareFunc
+	Middlewares      map[string][]MiddlewareFunc
 	ErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
 }
 
-// HandlerFromMux creates http.Handler with routing matching OpenAPI spec based on the provided mux.
-func HandlerFromMux(si ServerInterface, r chi.Router) http.Handler {
-	return HandlerWithOptions(si, ChiServerOptions{
-		BaseRouter: r,
-	})
-}
-
-func HandlerFromMuxWithBaseURL(si ServerInterface, r chi.Router, baseURL string) http.Handler {
-	return HandlerWithOptions(si, ChiServerOptions{
-		BaseURL:    baseURL,
-		BaseRouter: r,
-	})
-}
-
-// HandlerWithOptions creates http.Handler with additional options
-func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handler {
+func Handler(si ServerInterface, options ChiServerOptions) http.Handler {
 	r := options.BaseRouter
 
 	if r == nil {
@@ -392,29 +326,50 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 	wrapper := ServerInterfaceWrapper{
 		Handler:            si,
-		HandlerMiddlewares: options.Middlewares,
+		HandlerMiddlewares: options.Middlewares["common"],
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
 	r.Group(func(r chi.Router) {
+		if middlewares, ok := options.Middlewares["GET /api/user/balance"]; ok && len(middlewares) > 0 {
+			r.Use(middlewares...)
+		}
 		r.Get(options.BaseURL+"/api/user/balance", wrapper.GetApiUserBalance)
 	})
 	r.Group(func(r chi.Router) {
+		if middlewares, ok := options.Middlewares["POST /api/user/balance/withdraw"]; ok && len(middlewares) > 0 {
+			r.Use(middlewares...)
+		}
 		r.Post(options.BaseURL+"/api/user/balance/withdraw", wrapper.PostApiUserBalanceWithdraw)
 	})
 	r.Group(func(r chi.Router) {
+		if middlewares, ok := options.Middlewares["POST /api/user/login"]; ok && len(middlewares) > 0 {
+			r.Use(middlewares...)
+		}
 		r.Post(options.BaseURL+"/api/user/login", wrapper.PostApiUserLogin)
 	})
 	r.Group(func(r chi.Router) {
+		if middlewares, ok := options.Middlewares["GET /api/user/orders"]; ok && len(middlewares) > 0 {
+			r.Use(middlewares...)
+		}
 		r.Get(options.BaseURL+"/api/user/orders", wrapper.GetApiUserOrders)
 	})
 	r.Group(func(r chi.Router) {
+		if middlewares, ok := options.Middlewares["POST /api/user/orders"]; ok && len(middlewares) > 0 {
+			r.Use(middlewares...)
+		}
 		r.Post(options.BaseURL+"/api/user/orders", wrapper.PostApiUserOrders)
 	})
 	r.Group(func(r chi.Router) {
+		if middlewares, ok := options.Middlewares["POST /api/user/register"]; ok && len(middlewares) > 0 {
+			r.Use(middlewares...)
+		}
 		r.Post(options.BaseURL+"/api/user/register", wrapper.PostApiUserRegister)
 	})
 	r.Group(func(r chi.Router) {
+		if middlewares, ok := options.Middlewares["GET /api/user/withdrawals"]; ok && len(middlewares) > 0 {
+			r.Use(middlewares...)
+		}
 		r.Get(options.BaseURL+"/api/user/withdrawals", wrapper.GetApiUserWithdrawals)
 	})
 
