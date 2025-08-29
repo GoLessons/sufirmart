@@ -142,7 +142,7 @@ func InitContainer() *dependencies.Container {
 
 func tryMigrateDB(cfg *config.AppConfig, dbConnection *sql.DB, serverLogger *zap.Logger) {
 	if cfg.DatabaseUri != "" {
-		migrator := db.NewMigrator(dbConnection, serverLogger)
+		migrator := db.NewMigrator(dbConnection, serverLogger, cfg.MigrationDir)
 		err := migrator.Up()
 		if err != nil {
 			serverLogger.Error("migrations error", zap.Error(err))

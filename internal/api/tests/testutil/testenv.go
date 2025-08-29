@@ -4,12 +4,8 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
-	validator "openapi.tanna.dev/go/validator/openapi3"
 	"os"
 	"strings"
 	"sufirmart/internal/api"
@@ -17,6 +13,11 @@ import (
 	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	validator "openapi.tanna.dev/go/validator/openapi3"
 )
 
 type Tester struct {
@@ -42,9 +43,6 @@ func NewTester(t *testing.T) *Tester {
 
 	// Закрываем соединение после завершения теста
 	t.Cleanup(func() { _ = database.Close() })
-
-	migr := db.NewMigrator(database, logger)
-	require.NoError(t, migr.Up())
 
 	c := dependencies.NewContainer(logger, cfg, database)
 	router := api.InitApi(c)
