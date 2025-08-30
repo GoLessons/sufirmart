@@ -58,7 +58,7 @@ jobs:
 
       - name: Install migrate CLI
         run: |
-          go install github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
+          go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.0
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
       - name: Apply database migrations
