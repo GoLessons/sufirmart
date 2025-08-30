@@ -1,8 +1,9 @@
 # Выпускной проект
 
-[![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/GoLessons/sufirmart/main/coverage-badge.json)](https://github.com/GoLessons/sufirmart/actions/workflows/tests-coverage.yml)
+[![coverage](https://img.shields.io/endpoint?url=https://golessons.github.io/sufirmart/coverage-badge.json)](https://github.com/GoLessons/sufirmart/actions/workflows/tests-coverage.yml)
 [![gophermart](https://github.com/GoLessons/sufirmart/actions/workflows/gophermart.yml/badge.svg)](https://github.com/GoLessons/sufirmart/actions/workflows/gophermart.yml)
 [![statictest](https://github.com/GoLessons/sufirmart/actions/workflows/statictest.yml/badge.svg)](https://github.com/GoLessons/sufirmart/actions/workflows/statictest.yml)
+[![statictest](https://github.com/GoLessons/sufirmart/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/GoLessons/sufirmart/actions/workflows/golangci-lint.yml)
 
 Накопительная система лояльности
 
