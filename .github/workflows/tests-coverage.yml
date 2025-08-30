@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 env:
-  TEST_DATABASE_URI: postgres://postgres:postgres@postgres:5432/sufirmart_test?sslmode=disable
+  TEST_DATABASE_URI: postgresql://postgres:postgres@postgres:5432/sufirmart_test?sslmode=disable&search_path=public
   MIGRATIONS_DIR: ./migrations
   ACCRUAL_SYSTEM_ADDRESS: http://localhost:8081
 
