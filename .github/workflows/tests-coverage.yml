@@ -1,0 +1,124 @@
+name: dev tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+env:
+  TEST_DATABASE_URI: postgresql://postgres:postgres@postgres:5432/sufirmart_test?sslmode=disable&search_path=public
+  MIGRATIONS_DIR: ./migrations
+  ACCRUAL_SYSTEM_ADDRESS: http://localhost:8081
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    container: golang:1.25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sufirmart_test
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Disable VCS stamping (optional)
+        run: echo "GOFLAGS=-buildvcs=false" >> $GITHUB_ENV
+
+      - name: Install Postgres client
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h postgres -U postgres >/dev/null 2>&1; then
+              echo "Postgres is ready"
+              break
+            fi
+            echo "Waiting for Postgres..."
+            sleep 2
+          done
+          pg_isready -h postgres -U postgres
+
+      - name: Install migrate CLI
+        run: |
+          go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.0
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Apply database migrations
+        run: |
+          migrate -path "$MIGRATIONS_DIR" -database "$TEST_DATABASE_URI" up
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Run tests with coverage
+        run: |
+          set -e
+          go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Compute coverage value
+        id: cov
+        run: |
+          pct=$(go tool cover -func=coverage.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
+          echo "pct=$pct" >> $GITHUB_OUTPUT
+          # Calculate color by thresholds
+          val=${pct%.*}
+          if [ -z "$val" ]; then val=0; fi
+          if   [ "$val" -ge 90 ]; then color=brightgreen
+          elif [ "$val" -ge 80 ]; then color=green
+          elif [ "$val" -ge 70 ]; then color=yellowgreen
+          elif [ "$val" -ge 50 ]; then color=yellow
+          else color=red
+          fi
+          echo "color=$color" >> $GITHUB_OUTPUT
+
+      - name: Write Shields endpoint JSON
+        run: |
+          pct="${{ steps.cov.outputs.pct }}"
+          color="${{ steps.cov.outputs.color }}"
+          mkdir -p ./.pages
+          cat <<EOF > ./.pages/coverage-badge.json
+          {
+            "schemaVersion": 1,
+            "label": "coverage",
+            "message": "${pct}%",
+            "color": "${color}",
+            "cacheSeconds": 300
+          }
+          EOF
+
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./.pages
+
+  deploy:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
+    needs: tests
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      #url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

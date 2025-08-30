@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -11,12 +12,13 @@ import (
 )
 
 type migrator struct {
-	db     *sql.DB
-	logger *zap.Logger
+	db            *sql.DB
+	logger        *zap.Logger
+	migrationsDir string
 }
 
-func NewMigrator(db *sql.DB, logger *zap.Logger) *migrator {
-	return &migrator{db: db, logger: logger}
+func NewMigrator(db *sql.DB, logger *zap.Logger, migrationsDir string) *migrator {
+	return &migrator{db: db, logger: logger, migrationsDir: migrationsDir}
 }
 
 func (migrator migrator) Up() error {
@@ -26,7 +28,7 @@ func (migrator migrator) Up() error {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file:./migrations",
+		"file:"+migrator.migrationsDir,
 		"postgres",
 		driver,
 	)

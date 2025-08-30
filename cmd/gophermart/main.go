@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"log"
@@ -20,7 +19,6 @@ import (
 	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
 	"sufirmart/internal/logger"
-	"sufirmart/internal/middleware"
 	"syscall"
 	"time"
 )
@@ -56,11 +54,7 @@ func run(c *dependencies.Container) (err error) {
 		c.Logger().Fatal("failed to gracefully shutdown the service")
 	})
 
-	apiServer := api.Unimplemented{}
-	router := chi.NewMux()
-	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
-	gzipMiddleware := middleware.NewGzipMiddleware()
-	mainHandler := gzipMiddleware(logMiddleware(api.HandlerFromMux(apiServer, router)))
+	mainHandler := api.InitApi(c)
 
 	server := &http.Server{
 		Handler: mainHandler,
@@ -148,7 +142,7 @@ func InitContainer() *dependencies.Container {
 
 func tryMigrateDB(cfg *config.AppConfig, dbConnection *sql.DB, serverLogger *zap.Logger) {
 	if cfg.DatabaseUri != "" {
-		migrator := db.NewMigrator(dbConnection, serverLogger)
+		migrator := db.NewMigrator(dbConnection, serverLogger, cfg.MigrationDir)
 		err := migrator.Up()
 		if err != nil {
 			serverLogger.Error("migrations error", zap.Error(err))
