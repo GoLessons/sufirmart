@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 env:
-  TEST_DATABASE_URI: postgresql://postgres:postgres@postgres:5432/sufirmart_test?sslmode=disable
+  TEST_DATABASE_URI: postgres://postgres:postgres@postgres:5432/sufirmart_test?sslmode=disable
   MIGRATIONS_DIR: ./migrations
   ACCRUAL_SYSTEM_ADDRESS: http://localhost:8081
 
@@ -42,7 +42,7 @@ jobs:
       - name: Install Postgres client
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends postgresql-client ca-certificates
+          apt-get install -y --no-install-recommends postgresql-client
 
       - name: Wait for Postgres
         run: |
@@ -69,7 +69,9 @@ jobs:
         run: go mod download
 
       - name: Run tests with coverage
-        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+        run: |
+          set -e
+          go test ./... -coverprofile=coverage.out -covermode=atomic
 
       - name: Compute coverage value
         id: cov
@@ -92,7 +94,7 @@ jobs:
           pct="${{ steps.cov.outputs.pct }}"
           color="${{ steps.cov.outputs.color }}"
           mkdir -p ./.pages
-          cat > ./.pages/coverage-badge.json <<EOF
+          cat <<EOF > ./.pages/coverage-badge.json
           {
             "schemaVersion": 1,
             "label": "coverage",
@@ -114,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      #url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Deploy to GitHub Pages
