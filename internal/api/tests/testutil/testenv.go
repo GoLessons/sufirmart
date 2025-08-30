@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -67,12 +68,15 @@ func (e *Tester) ResetDB(t *testing.T) {
 func (e *Tester) DoRequest(t *testing.T, method string, url string, payload any) (*httptest.ResponseRecorder, *http.Request) {
 	t.Helper()
 
+	var bodyBytes []byte
 	var body *bytes.Reader
 	if payload != nil {
 		data, err := json.Marshal(payload)
 		require.NoError(t, err)
+		bodyBytes = data
 		body = bytes.NewReader(data)
 	} else {
+		bodyBytes = nil
 		body = bytes.NewReader(nil)
 	}
 
@@ -81,6 +85,10 @@ func (e *Tester) DoRequest(t *testing.T, method string, url string, payload any)
 	rr := httptest.NewRecorder()
 
 	e.Router.ServeHTTP(rr, req)
+
+	// Восстанавливаем тело запроса для OpenAPI-валидации
+	req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
 	return rr, req
 }
 

@@ -1,5 +1,9 @@
 # Выпускной проект
 
+[![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/GoLessons/sufirmart/main/coverage-badge.json)](https://github.com/GoLessons/sufirmart/actions/workflows/tests-coverage.yml)
+[![gophermart](https://github.com/GoLessons/sufirmart/actions/workflows/gophermart.yml/badge.svg)](https://github.com/GoLessons/sufirmart/actions/workflows/gophermart.yml)
+[![statictest](https://github.com/GoLessons/sufirmart/actions/workflows/statictest.yml/badge.svg)](https://github.com/GoLessons/sufirmart/actions/workflows/statictest.yml)
+
 Накопительная система лояльности
 
 ## Тестирование

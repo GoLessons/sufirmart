@@ -31,7 +31,7 @@ else
 fi
 
 docker compose exec -T db migrate -path /migrations \
-  -database "postgresql://sufirmart:sufirmart@localhost:5432/$DB_NAME?sslmode=disable" up
+  -database "postgresql://sufirmart:sufirmart@localhost:5432/$DB_NAME?sslmode=disable&search_path=public" up
 
 if [ -z "$TEST_DATABASE_URI" ]; then
   TEST_DATABASE_URI="postgresql://sufirmart:sufirmart@localhost:15432/$DB_NAME?sslmode=disable"
