@@ -110,9 +110,10 @@ jobs:
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages
           path: ./.pages
 
-  deploy:
+  deploy coverage:
     if: |
       (github.event_name == 'push' &&
         (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
