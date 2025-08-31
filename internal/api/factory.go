@@ -18,11 +18,17 @@ func InitApi(c *dependencies.Container) http.Handler {
 
 	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
 	gzipMiddleware := middleware.NewGzipMiddleware()
+	authMiddleware := middleware.NewAuthMiddleware(authSvc)
 
 	options := ChiServerOptions{
 		BaseRouter: chi.NewRouter(),
 		Middlewares: map[string][]MiddlewareFunc{
-			"root": {gzipMiddleware, logMiddleware},
+			"common":                          {gzipMiddleware, logMiddleware},
+			"GET /api/user/balance":           {authMiddleware},
+			"POST /api/user/balance/withdraw": {authMiddleware},
+			"GET /api/user/orders":            {authMiddleware},
+			"POST /api/user/orders":           {authMiddleware},
+			"GET /api/user/withdrawals":       {authMiddleware},
 		},
 	}
 
