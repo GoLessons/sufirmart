@@ -5,7 +5,9 @@ import (
 	"sufirmart/internal/domain"
 )
 
-const UserIDContextKey string = "userID"
+type contextKey string
+
+const UserIDContextKey contextKey = "userID"
 
 func UserIDFromContext(ctx context.Context) (domain.UserID, bool) {
 	v := ctx.Value(UserIDContextKey)
