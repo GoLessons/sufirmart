@@ -3,20 +3,26 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"strings"
 	"sufirmart/internal/auth"
+	"sufirmart/internal/domain"
+	"sufirmart/internal/repository"
+	"sufirmart/internal/security"
 	"sufirmart/internal/user"
 )
 
 var _ ServerInterface = (*MartApi)(nil)
 
 type MartApi struct {
-	authSvc auth.Authentication
-	userSvc *user.UserService
+	authSvc   auth.Authentication
+	userSvc   *user.UserService
+	ordersRep *repository.Repository
 }
 
-func NewApi(authSvc auth.Authentication, userSvc *user.UserService) MartApi {
-	return MartApi{authSvc: authSvc, userSvc: userSvc}
+func NewApi(authSvc auth.Authentication, userSvc *user.UserService, ordersRep *repository.Repository) MartApi {
+	return MartApi{authSvc: authSvc, userSvc: userSvc, ordersRep: ordersRep}
 }
 
 func (s MartApi) GetApiUserBalance(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +63,65 @@ func (s MartApi) GetApiUserOrders(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s MartApi) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+	ct := r.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "text/plain") {
+		http.Error(w, "invalid content type", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	rawOrderNum := strings.TrimSpace(string(body))
+	if rawOrderNum == "" {
+		http.Error(w, "invalid order number", http.StatusUnprocessableEntity)
+		return
+	}
+
+	if !security.OrderNumValidation(rawOrderNum) {
+		http.Error(w, "invalid order number", http.StatusUnprocessableEntity)
+		return
+	}
+
+	// Получаем UserID из контекста (проставляется в auth-мидлвари)
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	orderNum, err := domain.NewOrderNumber(rawOrderNum)
+	if err != nil {
+		http.Error(w, "invalid order number", http.StatusUnprocessableEntity)
+		return
+	}
+
+	ctx := r.Context()
+	existing, err := s.ordersRep.GetByNumber(ctx, orderNum)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if existing != nil {
+		if existing.UserID == userID {
+			// Уже загружен этим пользователем
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Уже загружен другим пользователем
+		http.Error(w, "order belongs to another user", http.StatusConflict)
+		return
+	}
+
+	if err := s.ordersRep.InsertNew(ctx, userID, orderNum); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (s MartApi) PostApiUserRegister(w http.ResponseWriter, r *http.Request) {

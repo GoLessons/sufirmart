@@ -9,7 +9,7 @@ import (
 
 func TestPostApiUserRegister_Success(t *testing.T) {
 	I := testutil.NewTester(t)
-	I.ResetDB(t)
+	require.NoError(t, I.CleanDatabase("sufirmart"))
 
 	rr, req := I.DoRequest(t, http.MethodPost, "/api/user/register", map[string]string{
 		"login":    "alice",
@@ -17,20 +17,23 @@ func TestPostApiUserRegister_Success(t *testing.T) {
 	})
 
 	require.Equal(t, http.StatusOK, rr.Code)
-	testutil.AssertBearerToken(t, rr)
+	token := I.AssertBearerToken(t, rr)
 	I.ValidateOpenAPI(t, rr, req)
+
+	existsUser, err := I.SeeInDatabase(`"sufirmart"."user"`, map[string]interface{}{"login": "alice"})
+	require.NoError(t, err)
+	require.True(t, existsUser)
+
+	existsAuth, err := I.SeeInDatabase(`"sufirmart"."auth"`, map[string]interface{}{"token": token})
+	require.NoError(t, err)
+	require.True(t, existsAuth)
 }
 
 func TestPostApiUserRegister_Conflict(t *testing.T) {
 	I := testutil.NewTester(t)
-	I.ResetDB(t)
+	require.NoError(t, I.CleanDatabase("sufirmart"))
 
-	registerOKResp, registerOKReq := I.DoRequest(t, http.MethodPost, "/api/user/register", map[string]string{
-		"login":    "alice",
-		"password": "pwd",
-	})
-	require.Equal(t, http.StatusOK, registerOKResp.Code)
-	I.ValidateOpenAPI(t, registerOKResp, registerOKReq)
+	I.SeedUser(t, "alice", "pwd")
 
 	registerConflictResp, registerConflictReq := I.DoRequest(t, http.MethodPost, "/api/user/register", map[string]string{
 		"login":    "alice",
@@ -42,7 +45,7 @@ func TestPostApiUserRegister_Conflict(t *testing.T) {
 
 func TestPostApiUserRegister_BadRequest(t *testing.T) {
 	I := testutil.NewTester(t)
-	I.ResetDB(t)
+	require.NoError(t, I.CleanDatabase("sufirmart"))
 
 	rr, req := I.DoRequest(t, http.MethodPost, "/api/user/register", map[string]string{
 		"login":    "",
@@ -55,14 +58,9 @@ func TestPostApiUserRegister_BadRequest(t *testing.T) {
 
 func TestPostApiUserLogin_Success(t *testing.T) {
 	I := testutil.NewTester(t)
-	I.ResetDB(t)
+	require.NoError(t, I.CleanDatabase("sufirmart"))
 
-	registerResp, registerReq := I.DoRequest(t, http.MethodPost, "/api/user/register", map[string]string{
-		"login":    "bob",
-		"password": "pwd",
-	})
-	require.Equal(t, http.StatusOK, registerResp.Code)
-	I.ValidateOpenAPI(t, registerResp, registerReq)
+	I.SeedUser(t, "bob", "pwd")
 
 	rr, req := I.DoRequest(t, http.MethodPost, "/api/user/login", map[string]string{
 		"login":    "bob",
@@ -71,12 +69,16 @@ func TestPostApiUserLogin_Success(t *testing.T) {
 	I.ValidateOpenAPI(t, rr, req)
 
 	require.Equal(t, http.StatusOK, rr.Code)
-	testutil.AssertBearerToken(t, rr)
+	token := I.AssertBearerToken(t, rr)
+
+	existsAuth, err := I.SeeInDatabase(`"sufirmart"."auth"`, map[string]interface{}{"token": token})
+	require.NoError(t, err)
+	require.True(t, existsAuth)
 }
 
 func TestPostApiUserLogin_Unauthorized(t *testing.T) {
 	I := testutil.NewTester(t)
-	I.ResetDB(t)
+	require.NoError(t, I.CleanDatabase("sufirmart"))
 
 	rr, req := I.DoRequest(t, http.MethodPost, "/api/user/login", map[string]string{
 		"login":    "unknown",
@@ -89,7 +91,7 @@ func TestPostApiUserLogin_Unauthorized(t *testing.T) {
 
 func TestPostApiUserLogin_BadRequest(t *testing.T) {
 	I := testutil.NewTester(t)
-	I.ResetDB(t)
+	require.NoError(t, I.CleanDatabase("sufirmart"))
 
 	rr, req := I.DoRequest(t, http.MethodPost, "/api/user/login", map[string]string{
 		"login":    "",

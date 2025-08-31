@@ -6,12 +6,14 @@ import (
 	"errors"
 	"github.com/Masterminds/squirrel"
 	"go.uber.org/zap"
+	"sufirmart/internal/domain"
 	"sufirmart/internal/security"
 )
 
 type Authentication interface {
 	Authenticate(username string, password string) (token string, err error)
 	IsAuthenticated(token string) (bool, error)
+	GetUserID(token string) (domain.UserID, error)
 }
 
 type AuthService struct {
@@ -22,8 +24,6 @@ type AuthService struct {
 func NewAuthService(db *sql.DB, logger *zap.Logger) *AuthService {
 	return &AuthService{db: db, logger: logger}
 }
-
-var ErrInvalidCredentials = errors.New("invalid credentials")
 
 func (a *AuthService) Authenticate(username string, password string) (string, error) {
 	if username == "" || password == "" {
@@ -50,7 +50,6 @@ func (a *AuthService) Authenticate(username string, password string) (string, er
 		return "", err
 	}
 
-	// Проверяем пароль
 	if !security.PasswordVerify(password, passwordHash) {
 		return "", ErrInvalidCredentials
 	}
@@ -77,7 +76,7 @@ func (a *AuthService) Authenticate(username string, password string) (string, er
 
 func (a *AuthService) IsAuthenticated(token string) (bool, error) {
 	if token == "" {
-		return false, nil
+		return false, ErrTokenMissing
 	}
 
 	ctx := context.Background()
@@ -98,10 +97,41 @@ func (a *AuthService) IsAuthenticated(token string) (bool, error) {
 	}
 	if err = a.db.QueryRowContext(ctx, selSQL, selArgs...).Scan(&probe); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
+			return false, ErrUnauthorized
 		}
 		return false, err
 	}
 
 	return true, nil
+}
+
+func (a *AuthService) GetUserID(token string) (domain.UserID, error) {
+	if token == "" {
+		return "", ErrTokenMissing
+	}
+
+	ctx := context.Background()
+	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+	var userID string
+	selSQL, selArgs, err := sb.
+		Select("user_id").
+		From(`"sufirmart"."auth"`).
+		Where(squirrel.And{
+			squirrel.Eq{"token": token},
+			squirrel.Expr(`"expired_at" > NOW()`),
+		}).
+		Limit(1).
+		ToSql()
+	if err != nil {
+		return "", err
+	}
+	if err = a.db.QueryRowContext(ctx, selSQL, selArgs...).Scan(&userID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrUserNotFound
+		}
+		return "", err
+	}
+
+	return domain.NewUserID(userID)
 }
