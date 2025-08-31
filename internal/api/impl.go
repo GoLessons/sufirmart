@@ -116,7 +116,7 @@ func (s MartApi) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.ordersRep.InsertNew(ctx, userID, orderNum); err != nil {
+	if err := s.ordersRep.Save(ctx, userID, orderNum); err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
