@@ -26,13 +26,13 @@ const (
 
 // Balance defines model for Balance.
 type Balance struct {
-	Current   float32 `json:"current"`
-	Withdrawn float32 `json:"withdrawn"`
+	Current   float64 `json:"current"`
+	Withdrawn float64 `json:"withdrawn"`
 }
 
 // Order defines model for Order.
 type Order struct {
-	Accrual    *float32    `json:"accrual,omitempty"`
+	Accrual    *float64    `json:"accrual,omitempty"`
 	Number     string      `json:"number"`
 	Status     OrderStatus `json:"status"`
 	UploadedAt time.Time   `json:"uploaded_at"`

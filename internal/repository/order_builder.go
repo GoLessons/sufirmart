@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func buildOrder(userID string, orderNumber string, status int16, uploadedAt time.Time, accrual *float32) (*domain.Order, error) {
+func buildOrder(userID string, orderNumber string, status int16, uploadedAt time.Time, accrual *float64) (*domain.Order, error) {
 	uid, err := domain.NewUserID(userID)
 	if err != nil {
 		return nil, err

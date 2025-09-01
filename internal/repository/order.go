@@ -10,16 +10,16 @@ import (
 	"time"
 )
 
-type Repository struct {
+type OrderRepository struct {
 	db     *sql.DB
 	logger *zap.Logger
 }
 
-func NewRepository(db *sql.DB, logger *zap.Logger) *Repository {
-	return &Repository{db: db, logger: logger}
+func NewOrderRepository(db *sql.DB, logger *zap.Logger) *OrderRepository {
+	return &OrderRepository{db: db, logger: logger}
 }
 
-func (r *Repository) GetByNumber(ctx context.Context, number domain.OrderNumber) (*domain.Order, error) {
+func (r *OrderRepository) GetByNumber(ctx context.Context, number domain.OrderNumber) (*domain.Order, error) {
 	builder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 	query, args, err := builder.
@@ -53,7 +53,7 @@ func (r *Repository) GetByNumber(ctx context.Context, number domain.OrderNumber)
 	return order, nil
 }
 
-func (r *Repository) Save(ctx context.Context, userID domain.UserID, number domain.OrderNumber) error {
+func (r *OrderRepository) Save(ctx context.Context, userID domain.UserID, number domain.OrderNumber) error {
 	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 	sqlQ, args, err := sb.
@@ -70,7 +70,7 @@ func (r *Repository) Save(ctx context.Context, userID domain.UserID, number doma
 	return err
 }
 
-func (r *Repository) ListByUser(ctx context.Context, userID domain.UserID) ([]*domain.Order, error) {
+func (r *OrderRepository) ListByUser(ctx context.Context, userID domain.UserID) ([]*domain.Order, error) {
 	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 	query, args, err := sb.

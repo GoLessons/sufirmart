@@ -16,17 +16,38 @@ import (
 var _ ServerInterface = (*MartApi)(nil)
 
 type MartApi struct {
-	authSvc   auth.Authentication
-	userSvc   *user.UserService
-	ordersRep *repository.Repository
+	authSvc     auth.Authentication
+	userSvc     *user.UserService
+	ordersRep   *repository.OrderRepository
+	accountsRep *repository.AccountRepository
 }
 
-func NewApi(authSvc auth.Authentication, userSvc *user.UserService, ordersRep *repository.Repository) MartApi {
-	return MartApi{authSvc: authSvc, userSvc: userSvc, ordersRep: ordersRep}
+func NewApi(authSvc auth.Authentication, userSvc *user.UserService, ordersRep *repository.OrderRepository, accountsRep *repository.AccountRepository) MartApi {
+	return MartApi{authSvc: authSvc, userSvc: userSvc, ordersRep: ordersRep, accountsRep: accountsRep}
 }
 
 func (s MartApi) GetApiUserBalance(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	ctx := r.Context()
+	balance, err := s.accountsRep.GetBalance(ctx, userID)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := Balance{
+		Current:   balance.Current(),
+		Withdrawn: balance.Withdrawn(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (s MartApi) PostApiUserBalanceWithdraw(w http.ResponseWriter, r *http.Request) {

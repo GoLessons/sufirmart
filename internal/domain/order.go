@@ -16,7 +16,7 @@ type Order struct {
 	Number     OrderNumber
 	Status     OrderStatus
 	UploadedAt time.Time
-	Accrual    *float32
+	Accrual    *float64
 }
 
 func NewOrder(
@@ -24,7 +24,7 @@ func NewOrder(
 	number OrderNumber,
 	status OrderStatus,
 	uploadedAt time.Time,
-	accrual *float32,
+	accrual *float64,
 ) Order {
 	return Order{
 		UserID:     userID,
