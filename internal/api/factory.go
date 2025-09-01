@@ -14,9 +14,10 @@ func InitApi(c *dependencies.Container) http.Handler {
 	// Инициализация сервисов
 	authSvc := auth.NewAuthService(c.Db(), c.Logger())
 	userSvc := user.NewUserService(c.Db(), c.Logger())
-	ordersRepo := repository.NewRepository(c.Db(), c.Logger())
+	ordersRepo := repository.NewOrderRepository(c.Db(), c.Logger())
+	accountsRepo := repository.NewAccountRepository(c.Db(), c.Logger())
 
-	apiServer := NewApi(authSvc, userSvc, ordersRepo)
+	apiServer := NewApi(authSvc, userSvc, ordersRepo, accountsRepo)
 
 	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
 	gzipMiddleware := middleware.NewGzipMiddleware()
