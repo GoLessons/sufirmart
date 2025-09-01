@@ -59,7 +59,52 @@ func (s MartApi) PostApiUserLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s MartApi) GetApiUserOrders(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	ctx := r.Context()
+	list, err := s.ordersRep.ListByUser(ctx, userID)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if len(list) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	resp := make([]Order, 0, len(list))
+	for _, o := range list {
+		var st OrderStatus
+		switch o.Status {
+		case domain.OrderStatusNew:
+			st = NEW
+		case domain.OrderStatusProcessing:
+			st = PROCESSING
+		case domain.OrderStatusInvalid:
+			st = INVALID
+		case domain.OrderStatusProcessed:
+			st = PROCESSED
+		default:
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		resp = append(resp, Order{
+			Number:     o.Number.String(),
+			Status:     st,
+			UploadedAt: o.UploadedAt,
+			Accrual:    o.Accrual,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (s MartApi) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
@@ -85,7 +130,6 @@ func (s MartApi) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем UserID из контекста (проставляется в auth-мидлвари)
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok || userID == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -106,12 +150,9 @@ func (s MartApi) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
 	}
 	if existing != nil {
 		if existing.UserID == userID {
-			// Уже загружен этим пользователем
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-
-		// Уже загружен другим пользователем
 		http.Error(w, "order belongs to another user", http.StatusConflict)
 		return
 	}

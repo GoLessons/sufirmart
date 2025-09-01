@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -39,7 +40,7 @@ func NewTester(t *testing.T) *Tester {
 	}
 
 	cfg := &config.AppConfig{DatabaseUri: dsn}
-	logger := zap.NewNop()
+	logger := NewTestLogger(t)
 
 	database, err := db.DBFactory(cfg)
 	require.NoError(t, err)
@@ -226,4 +227,28 @@ func (e *Tester) SeedAuthToken(t *testing.T, userID string) string {
 	})
 	require.NoError(t, err)
 	return token
+}
+
+type testWriter struct {
+	t *testing.T
+}
+
+func (w *testWriter) Write(p []byte) (n int, err error) {
+	msg := string(p)
+	if len(msg) > 0 && msg[len(msg)-1] == '\n' {
+		msg = msg[:len(msg)-1]
+	}
+	w.t.Log(msg)
+	return len(p), nil
+}
+
+func (w *testWriter) Sync() error {
+	return nil
+}
+
+func NewTestLogger(t *testing.T) *zap.Logger {
+	ws := zapcore.AddSync(&testWriter{t})
+	encoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+	core := zapcore.NewCore(encoder, ws, zap.DebugLevel)
+	return zap.New(core, zap.AddCaller())
 }

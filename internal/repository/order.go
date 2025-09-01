@@ -45,17 +45,12 @@ func (r *Repository) GetByNumber(ctx context.Context, number domain.OrderNumber)
 		return nil, err
 	}
 
-	uid, err := domain.NewUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-	on, err := domain.NewOrderNumber(orderNum)
+	order, err := buildOrder(userID, orderNum, status, uploadedAt, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	order := domain.NewOrder(uid, on, domain.OrderStatus(status), uploadedAt, nil)
-	return &order, nil
+	return order, nil
 }
 
 func (r *Repository) Save(ctx context.Context, userID domain.UserID, number domain.OrderNumber) error {
@@ -73,4 +68,51 @@ func (r *Repository) Save(ctx context.Context, userID domain.UserID, number doma
 
 	_, err = r.db.ExecContext(ctx, sqlQ, args...)
 	return err
+}
+
+func (r *Repository) ListByUser(ctx context.Context, userID domain.UserID) ([]*domain.Order, error) {
+	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+	query, args, err := sb.
+		Select("user_id", "order_num", "status", "uploaded_at").
+		From(`"sufirmart"."order"`).
+		Where(squirrel.Eq{"user_id": userID.String()}).
+		OrderBy(`"uploaded_at" DESC`).
+		ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func(rows *sql.Rows) {
+		_ = rows.Close()
+	}(rows)
+
+	var orders []*domain.Order
+	for rows.Next() {
+		var (
+			userIDStr string
+			orderNum  string
+			status    int16
+			uploaded  time.Time
+		)
+		if err := rows.Scan(&userIDStr, &orderNum, &status, &uploaded); err != nil {
+			return nil, err
+		}
+
+		o, err := buildOrder(userIDStr, orderNum, status, uploaded, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		orders = append(orders, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
 }
