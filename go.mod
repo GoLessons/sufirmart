@@ -25,6 +25,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
+	github.com/go-resty/resty/v2 v2.16.5 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -53,6 +54,7 @@ require (
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/mod v0.26.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/tools v0.35.0 // indirect
