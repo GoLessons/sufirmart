@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+var ErrOrderNotFound = errors.New("order not found")
+
 type OrderRepository struct {
 	db     *sql.DB
 	logger *zap.Logger
@@ -19,16 +21,14 @@ func NewOrderRepository(db *sql.DB, logger *zap.Logger) *OrderRepository {
 	return &OrderRepository{db: db, logger: logger}
 }
 
-func (r *OrderRepository) GetByNumber(ctx context.Context, number domain.OrderNumber) (*domain.Order, error) {
-	builder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-
-	query, args, err := builder.
+func (r *OrderRepository) GetByNumber(ctx context.Context, number domain.OrderNumber, lock bool) (*domain.Order, error) {
+	builder := squirrel.StatementBuilder.
+		PlaceholderFormat(squirrel.Dollar).
 		Select("user_id", "order_num", "status", "uploaded_at").
 		From(`"sufirmart"."order"`).
-		Where(squirrel.Eq{"order_num": number.String()}).
-		ToSql()
-	if err != nil {
-		return nil, err
+		Where(squirrel.Eq{"order_num": number.String()})
+	if lock {
+		builder = builder.Suffix("FOR UPDATE")
 	}
 
 	var (
@@ -37,11 +37,12 @@ func (r *OrderRepository) GetByNumber(ctx context.Context, number domain.OrderNu
 		status     int16
 		uploadedAt time.Time
 	)
-	err = r.db.QueryRowContext(ctx, query, args...).Scan(&userID, &orderNum, &status, &uploadedAt)
+	err := builder.QueryRowContext(ctx).Scan(&userID, &orderNum, &status, &uploadedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, ErrOrderNotFound
 		}
+
 		return nil, err
 	}
 
@@ -53,37 +54,27 @@ func (r *OrderRepository) GetByNumber(ctx context.Context, number domain.OrderNu
 	return order, nil
 }
 
-func (r *OrderRepository) Save(ctx context.Context, userID domain.UserID, number domain.OrderNumber) error {
-	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-
-	sqlQ, args, err := sb.
+func (r *OrderRepository) Save(ctx context.Context, order *domain.Order) error {
+	builder := squirrel.StatementBuilder.
+		PlaceholderFormat(squirrel.Dollar).
 		Insert(`"sufirmart"."order"`).
 		Columns("user_id", "order_num", "status").
-		Values(userID.String(), number.String(), int16(domain.OrderStatusNew)).
-		Suffix(`ON CONFLICT ("order_num") DO NOTHING`).
-		ToSql()
-	if err != nil {
-		return err
-	}
+		Values(order.UserID().String(), order.Number().String(), int16(order.Status())).
+		Suffix(`ON CONFLICT ("user_id", "order_num") DO UPDATE SET status = EXCLUDED.status`)
 
-	_, err = r.db.ExecContext(ctx, sqlQ, args...)
+	_, err := builder.ExecContext(ctx)
 	return err
 }
 
 func (r *OrderRepository) ListByUser(ctx context.Context, userID domain.UserID) ([]*domain.Order, error) {
-	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-
-	query, args, err := sb.
+	builder := squirrel.StatementBuilder.
+		PlaceholderFormat(squirrel.Dollar).
 		Select("user_id", "order_num", "status", "uploaded_at").
 		From(`"sufirmart"."order"`).
 		Where(squirrel.Eq{"user_id": userID.String()}).
-		OrderBy(`"uploaded_at" DESC`).
-		ToSql()
-	if err != nil {
-		return nil, err
-	}
+		OrderBy(`"uploaded_at" DESC`)
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := builder.QueryContext(ctx)
 	if err != nil {
 		return nil, err
 	}

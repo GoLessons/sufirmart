@@ -8,9 +8,11 @@ import (
 	"strings"
 	"sufirmart/internal/auth"
 	"sufirmart/internal/domain"
+	"sufirmart/internal/order"
 	"sufirmart/internal/repository"
 	"sufirmart/internal/security"
 	"sufirmart/internal/user"
+	"time"
 )
 
 var _ ServerInterface = (*MartApi)(nil)
@@ -20,10 +22,11 @@ type MartApi struct {
 	userSvc     *user.UserService
 	ordersRep   *repository.OrderRepository
 	accountsRep *repository.AccountRepository
+	processor   *order.Processor
 }
 
-func NewApi(authSvc auth.Authentication, userSvc *user.UserService, ordersRep *repository.OrderRepository, accountsRep *repository.AccountRepository) MartApi {
-	return MartApi{authSvc: authSvc, userSvc: userSvc, ordersRep: ordersRep, accountsRep: accountsRep}
+func NewApi(authSvc auth.Authentication, userSvc *user.UserService, ordersRep *repository.OrderRepository, accountsRep *repository.AccountRepository, processor *order.Processor) MartApi {
+	return MartApi{authSvc: authSvc, userSvc: userSvc, ordersRep: ordersRep, accountsRep: accountsRep, processor: processor}
 }
 
 func (s MartApi) GetApiUserBalance(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +104,7 @@ func (s MartApi) GetApiUserOrders(w http.ResponseWriter, r *http.Request) {
 	resp := make([]Order, 0, len(list))
 	for _, o := range list {
 		var st OrderStatus
-		switch o.Status {
+		switch o.Status() {
 		case domain.OrderStatusNew:
 			st = NEW
 		case domain.OrderStatusProcessing:
@@ -116,10 +119,10 @@ func (s MartApi) GetApiUserOrders(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp = append(resp, Order{
-			Number:     o.Number.String(),
+			Number:     o.Number().String(),
 			Status:     st,
-			UploadedAt: o.UploadedAt,
-			Accrual:    o.Accrual,
+			UploadedAt: o.UploadedAt(),
+			Accrual:    o.Accrual(),
 		})
 	}
 
@@ -164,13 +167,13 @@ func (s MartApi) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	existing, err := s.ordersRep.GetByNumber(ctx, orderNum)
+	existing, err := s.ordersRep.GetByNumber(ctx, orderNum, false)
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	if existing != nil {
-		if existing.UserID == userID {
+		if existing.UserID() == userID {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -178,9 +181,15 @@ func (s MartApi) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.ordersRep.Save(ctx, userID, orderNum); err != nil {
+	newOrder := domain.NewOrder(userID, orderNum, domain.OrderStatusNew, time.Now(), nil)
+	err = s.ordersRep.Save(ctx, &newOrder)
+	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
+	}
+
+	if s.processor != nil {
+		s.processor.ProcessOrder(orderNum)
 	}
 
 	w.WriteHeader(http.StatusAccepted)

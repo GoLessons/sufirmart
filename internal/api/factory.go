@@ -6,18 +6,19 @@ import (
 	"sufirmart/internal/auth"
 	"sufirmart/internal/dependencies"
 	"sufirmart/internal/middleware"
+	"sufirmart/internal/order"
 	"sufirmart/internal/repository"
 	"sufirmart/internal/user"
 )
 
 func InitApi(c *dependencies.Container) http.Handler {
-	// Инициализация сервисов
 	authSvc := auth.NewAuthService(c.Db(), c.Logger())
 	userSvc := user.NewUserService(c.Db(), c.Logger())
 	ordersRepo := repository.NewOrderRepository(c.Db(), c.Logger())
 	accountsRepo := repository.NewAccountRepository(c.Db(), c.Logger())
+	orderProcessor := order.NewProcessor()
 
-	apiServer := NewApi(authSvc, userSvc, ordersRepo, accountsRepo)
+	apiServer := NewApi(authSvc, userSvc, ordersRepo, accountsRepo, orderProcessor)
 
 	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
 	gzipMiddleware := middleware.NewGzipMiddleware()

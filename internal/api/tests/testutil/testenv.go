@@ -16,11 +16,13 @@ import (
 	validator "openapi.tanna.dev/go/validator/openapi3"
 	"os"
 	"strings"
+	"sufirmart/internal/accrual"
 	"sufirmart/internal/api"
 	"sufirmart/internal/config"
 	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
 	"sufirmart/internal/security"
+	"sufirmart/internal/tools/workerpool"
 	"testing"
 )
 
@@ -29,6 +31,7 @@ type Tester struct {
 	Router        http.Handler
 	DB            *sql.DB
 	OpenAPITester *openapi3.T
+	AccrualReader *accrual.StubReader
 }
 
 func NewTester(t *testing.T) *Tester {
@@ -45,10 +48,21 @@ func NewTester(t *testing.T) *Tester {
 	database, err := db.DBFactory(cfg)
 	require.NoError(t, err)
 
-	// Закрываем соединение после завершения теста
 	t.Cleanup(func() { _ = database.Close() })
 
-	c := dependencies.NewContainer(logger, cfg, database)
+	wp := workerpool.New(5, 100)
+	wp.OnError(func(err error) {
+		logger.Error("worker task error", zap.Error(err))
+	})
+	wp.Start()
+	t.Cleanup(func() {
+		wp.Stop()
+	})
+
+	accReader := accrual.NewStubReader(nil)
+
+	c := dependencies.NewContainer(logger, cfg, database, accReader, wp)
+
 	router := api.InitApi(c)
 
 	doc, loadErr := openapi3.NewLoader().LoadFromFile("../../../specification.yaml")
@@ -59,6 +73,7 @@ func NewTester(t *testing.T) *Tester {
 		Router:        router,
 		DB:            database,
 		OpenAPITester: doc,
+		AccrualReader: accReader,
 	}
 }
 

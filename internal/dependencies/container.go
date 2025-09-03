@@ -3,20 +3,26 @@ package dependencies
 import (
 	"database/sql"
 	"go.uber.org/zap"
+	"sufirmart/internal/accrual"
 	"sufirmart/internal/config"
+	"sufirmart/internal/tools/workerpool"
 )
 
 type Container struct {
-	logger *zap.Logger
-	config *config.AppConfig
-	db     *sql.DB
+	logger        *zap.Logger
+	config        *config.AppConfig
+	db            *sql.DB
+	accrualReader accrual.Reader
+	workerPool    *workerpool.WorkerPool
 }
 
-func NewContainer(logger *zap.Logger, config *config.AppConfig, db *sql.DB) *Container {
+func NewContainer(logger *zap.Logger, config *config.AppConfig, db *sql.DB, accrualReader accrual.Reader, workerPool *workerpool.WorkerPool) *Container {
 	return &Container{
-		logger: logger,
-		config: config,
-		db:     db,
+		logger:        logger,
+		config:        config,
+		db:            db,
+		accrualReader: accrualReader,
+		workerPool:    workerPool,
 	}
 }
 
@@ -30,4 +36,12 @@ func (c *Container) Db() *sql.DB {
 
 func (c *Container) Logger() *zap.Logger {
 	return c.logger
+}
+
+func (c *Container) AccrualReader() accrual.Reader {
+	return c.accrualReader
+}
+
+func (c *Container) WorkerPool() *workerpool.WorkerPool {
+	return c.workerPool
 }

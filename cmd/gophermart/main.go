@@ -14,11 +14,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sufirmart/internal/accrual"
 	"sufirmart/internal/api"
 	"sufirmart/internal/config"
 	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
 	"sufirmart/internal/logger"
+	"sufirmart/internal/tools/workerpool"
 	"syscall"
 	"time"
 )
@@ -77,12 +79,19 @@ func run(c *dependencies.Container) (err error) {
 
 		c.Logger().Info("server started", zap.String("addr", server.Addr))
 
-		if err = server.Serve(ln); err != nil {
+		err = server.Serve(ln)
+		if err != nil {
 			if errors.Is(err, http.ErrServerClosed) {
 				return nil
 			}
 
 			return fmt.Errorf("listen and server has failed: %w", err)
+		}
+
+		wp := c.WorkerPool()
+		if wp != nil {
+			wp.Start()
+			c.Logger().Info("worker pool started")
 		}
 
 		return nil
@@ -97,7 +106,14 @@ func run(c *dependencies.Container) (err error) {
 		shutdownTimeoutCtx, cancelShutdownTimeoutCtx := context.WithTimeout(context.Background(), timeoutServerShutdown)
 		defer cancelShutdownTimeoutCtx()
 
-		if err := server.Shutdown(shutdownTimeoutCtx); err != nil {
+		wp := c.WorkerPool()
+		if wp != nil {
+			wp.Stop()
+			c.Logger().Info("worker pool stopped")
+		}
+
+		err = server.Shutdown(shutdownTimeoutCtx)
+		if err != nil {
 			c.Logger().Error("an error occurred during server shutdown", zap.Error(err))
 		}
 
@@ -135,7 +151,20 @@ func InitContainer() *dependencies.Container {
 		log.Fatal(err)
 	}
 
-	deps := dependencies.NewContainer(appLogger, appConfig, dbConnection)
+	wp := workerpool.New(5, 100)
+	wp.OnError(func(err error) {
+		appLogger.Error("worker task error", zap.Error(err))
+	})
+
+	accrualReader := accrual.NewHttpReader(appConfig.AccuralAddress)
+
+	deps := dependencies.NewContainer(
+		appLogger,
+		appConfig,
+		dbConnection,
+		accrualReader,
+		wp,
+	)
 
 	return deps
 }
