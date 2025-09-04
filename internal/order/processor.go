@@ -120,6 +120,14 @@ func (p *Processor) processOrder(ctx context.Context, number domain.OrderNumber)
 			return nil, nil
 		}
 	})
+	if err != nil {
+		p.logger.Error(
+			"accrual request finished with unretriable error",
+			zap.Error(err),
+			zap.String("order_number", number.String()),
+		)
+		_ = p.failOrder(ctx, order, transactionID, "accrual request failed")
+	}
 }
 
 func (p *Processor) touchOrder(ctx context.Context, number domain.OrderNumber) *domain.Order {
