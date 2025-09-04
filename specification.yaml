@@ -176,7 +176,7 @@ components:
           enum: [NEW, PROCESSING, INVALID, PROCESSED]
         accrual:
           type: number
-          format: double
+          format: float
           example: 500.0
         uploaded_at:
           type: string
@@ -191,11 +191,11 @@ components:
       properties:
         current:
           type: number
-          format: double
+          format: float
           example: 500.5
         withdrawn:
           type: number
-          format: double
+          format: float
           example: 42
 
     WithdrawRequest:
