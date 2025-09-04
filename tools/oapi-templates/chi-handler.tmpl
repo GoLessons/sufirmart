@@ -1,0 +1,33 @@
+type ChiServerOptions struct {
+    BaseURL string
+    BaseRouter chi.Router
+    Middlewares map[string][]MiddlewareFunc
+    ErrorHandlerFunc   func(w http.ResponseWriter, r *http.Request, err error)
+}
+
+func Handler(si ServerInterface, options ChiServerOptions) http.Handler {
+r := options.BaseRouter
+
+if r == nil {
+r = chi.NewRouter()
+}
+if options.ErrorHandlerFunc == nil {
+    options.ErrorHandlerFunc = func(w http.ResponseWriter, r *http.Request, err error) {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+    }
+}
+{{if .}}wrapper := ServerInterfaceWrapper{
+Handler: si,
+HandlerMiddlewares: options.Middlewares["common"],
+ErrorHandlerFunc: options.ErrorHandlerFunc,
+}
+{{end}}
+{{range .}}r.Group(func(r chi.Router) {
+if middlewares, ok := options.Middlewares["{{.Method}} {{.Path | swaggerUriToChiUri}}"]; ok && len(middlewares) > 0 {
+r.Use(middlewares...)
+}
+r.{{.Method | lower | title }}(options.BaseURL+"{{.Path | swaggerUriToChiUri}}", wrapper.{{.OperationId}})
+})
+{{end}}
+return r
+}
