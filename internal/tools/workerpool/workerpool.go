@@ -2,6 +2,7 @@ package workerpool
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 type Task func() error
@@ -12,8 +13,8 @@ type WorkerPool struct {
 	wgWorkers   sync.WaitGroup
 	wgTasks     sync.WaitGroup
 	once        sync.Once
-	stopCh      chan struct{}
 	onError     OnError
+	started     uint32 // 0 - not started, 1 - started
 }
 
 type OnError func(err error)
@@ -22,31 +23,26 @@ func New(workerCount int, queueSize int) *WorkerPool {
 	return &WorkerPool{
 		workerCount: workerCount,
 		tasks:       make(chan Task, queueSize),
-		stopCh:      make(chan struct{}),
 	}
 }
 
 func (wp *WorkerPool) Start() {
+	if atomic.LoadUint32(&wp.started) == 1 {
+		return
+	}
+
+	atomic.StoreUint32(&wp.started, 1)
 	for i := 0; i < wp.workerCount; i++ {
 		wp.wgWorkers.Add(1)
 		go func(id int) {
 			defer wp.wgWorkers.Done()
-			for {
-				select {
-				case <-wp.stopCh:
-					return
-				case task, ok := <-wp.tasks:
-					if !ok {
-						return
-					}
-					if task != nil {
-						err := task()
-						if err != nil && wp.onError != nil {
-							wp.onError(err)
-						}
-						wp.wgTasks.Done()
+			for task := range wp.tasks {
+				if task != nil {
+					if err := task(); err != nil && wp.onError != nil {
+						wp.onError(err)
 					}
 				}
+				wp.wgTasks.Done()
 			}
 		}(i)
 	}
@@ -63,9 +59,16 @@ func (wp *WorkerPool) OnError(onError OnError) {
 
 func (wp *WorkerPool) Stop() {
 	wp.once.Do(func() {
-		close(wp.stopCh)
 		close(wp.tasks)
-		wp.wgTasks.Wait()
-		wp.wgWorkers.Wait()
+
+		if atomic.LoadUint32(&wp.started) == 1 {
+			wp.wgTasks.Wait()
+			wp.wgWorkers.Wait()
+			return
+		}
+
+		for range wp.tasks {
+			wp.wgTasks.Done()
+		}
 	})
 }
