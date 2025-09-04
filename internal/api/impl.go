@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -169,10 +170,11 @@ func (s MartApi) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	existing, err := s.ordersRep.GetByNumber(ctx, orderNum, false)
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	if existing != nil {
+		if !errors.Is(err, repository.ErrOrderNotFound) {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	} else if existing != nil {
 		if existing.UserID() == userID {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -189,7 +191,7 @@ func (s MartApi) PostApiUserOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.processor != nil {
-		s.processor.ProcessOrder(orderNum)
+		s.processor.Process(context.TODO(), orderNum)
 	}
 
 	w.WriteHeader(http.StatusAccepted)

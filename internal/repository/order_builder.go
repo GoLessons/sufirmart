@@ -11,11 +11,6 @@ func buildOrder(userID string, orderNumber string, status int16, uploadedAt time
 		return nil, err
 	}
 
-	num := domain.OrderNumber(orderNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	order := domain.NewOrder(uid, num, domain.OrderStatus(status), uploadedAt, accrual)
+	order := domain.NewOrder(uid, domain.OrderNumber(orderNumber), domain.OrderStatus(status), uploadedAt, accrual)
 	return &order, nil
 }

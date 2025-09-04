@@ -72,6 +72,12 @@ func run(c *dependencies.Container) (err error) {
 			}
 		}()
 
+		wp := c.WorkerPool()
+		if wp != nil {
+			wp.Start()
+			c.Logger().Info("worker pool started")
+		}
+
 		ln, err := net.Listen("tcp", server.Addr)
 		if err != nil {
 			return fmt.Errorf("failed to listen on %s: %w", server.Addr, err)
@@ -86,12 +92,6 @@ func run(c *dependencies.Container) (err error) {
 			}
 
 			return fmt.Errorf("listen and server has failed: %w", err)
-		}
-
-		wp := c.WorkerPool()
-		if wp != nil {
-			wp.Start()
-			c.Logger().Info("worker pool started")
 		}
 
 		return nil

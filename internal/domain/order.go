@@ -52,6 +52,10 @@ func (o *Order) Status() OrderStatus {
 	return o.status
 }
 
+func (o *Order) CanBeProcessed() bool {
+	return o.Status() == OrderStatusNew
+}
+
 func (o *Order) UploadedAt() time.Time {
 	return o.uploadedAt
 }

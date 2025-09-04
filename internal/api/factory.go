@@ -16,7 +16,14 @@ func InitApi(c *dependencies.Container) http.Handler {
 	userSvc := user.NewUserService(c.Db(), c.Logger())
 	ordersRepo := repository.NewOrderRepository(c.Db(), c.Logger())
 	accountsRepo := repository.NewAccountRepository(c.Db(), c.Logger())
-	orderProcessor := order.NewProcessor()
+	orderProcessor := order.NewProcessor(
+		ordersRepo,
+		accountsRepo,
+		c.AccrualReader(),
+		c.Logger(),
+		c.Db(),
+		c.WorkerPool(),
+	)
 
 	apiServer := NewApi(authSvc, userSvc, ordersRepo, accountsRepo, orderProcessor)
 

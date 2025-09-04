@@ -22,7 +22,7 @@ func NewErrNotFound(orderNum string) *ErrNotFound {
 	return &ErrNotFound{orderNum: orderNum}
 }
 
-func (e *ErrNotFound) Error() string {
+func (e ErrNotFound) Error() string {
 	return fmt.Sprintf("order %s not found", e.orderNum)
 }
 

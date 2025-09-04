@@ -37,7 +37,7 @@ func (r *OrderRepository) GetByNumber(ctx context.Context, number domain.OrderNu
 		status     int16
 		uploadedAt time.Time
 	)
-	err := builder.QueryRowContext(ctx).Scan(&userID, &orderNum, &status, &uploadedAt)
+	err := builder.RunWith(r.db).QueryRowContext(ctx).Scan(&userID, &orderNum, &status, &uploadedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrOrderNotFound
@@ -62,7 +62,7 @@ func (r *OrderRepository) Save(ctx context.Context, order *domain.Order) error {
 		Values(order.UserID().String(), order.Number().String(), int16(order.Status())).
 		Suffix(`ON CONFLICT ("user_id", "order_num") DO UPDATE SET status = EXCLUDED.status`)
 
-	_, err := builder.ExecContext(ctx)
+	_, err := builder.RunWith(r.db).ExecContext(ctx)
 	return err
 }
 
@@ -74,7 +74,8 @@ func (r *OrderRepository) ListByUser(ctx context.Context, userID domain.UserID) 
 		Where(squirrel.Eq{"user_id": userID.String()}).
 		OrderBy(`"uploaded_at" DESC`)
 
-	rows, err := builder.QueryContext(ctx)
+	// ВАЖНО: привязываем соединение к билдеру перед QueryContext
+	rows, err := builder.RunWith(r.db).QueryContext(ctx)
 	if err != nil {
 		return nil, err
 	}
