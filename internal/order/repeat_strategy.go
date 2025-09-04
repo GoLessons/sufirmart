@@ -61,6 +61,8 @@ func (s *AdaptiveStrategy) Delay(iter uint) time.Duration {
 	return s.baseDelay
 }
 
+var ErrStillProcessing = errors.New("accrual still processing")
+
 func isRetriableError(err error) bool {
 	var notFound *accrual.ErrNotFound
 	var processing *accrual.OrderInProcessing
@@ -68,5 +70,6 @@ func isRetriableError(err error) bool {
 
 	return errors.As(err, &notFound) ||
 		errors.As(err, &processing) ||
-		errors.As(err, &tooMany)
+		errors.As(err, &tooMany) ||
+		errors.Is(err, ErrStillProcessing)
 }

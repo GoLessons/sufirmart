@@ -42,7 +42,15 @@ func NewTester(t *testing.T) *Tester {
 		dsn = "postgresql://sufirmart:sufirmart@localhost:15432/sufirmart_test?sslmode=disable"
 	}
 
-	cfg := &config.AppConfig{DatabaseUri: dsn}
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" {
+		migrationsDir = "./migrations"
+	}
+
+	cfg := &config.AppConfig{
+		DatabaseUri:  dsn,
+		MigrationDir: migrationsDir,
+	}
 	logger := NewTestLogger(t)
 
 	database, err := db.DBFactory(cfg)
@@ -54,7 +62,6 @@ func NewTester(t *testing.T) *Tester {
 	wp.OnError(func(err error) {
 		logger.Error("worker task error", zap.Error(err))
 	})
-	wp.Start()
 	t.Cleanup(func() {
 		wp.Stop()
 	})
