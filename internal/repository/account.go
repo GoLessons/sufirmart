@@ -91,3 +91,36 @@ func (r *AccountRepository) ApproveTransaction(ctx context.Context, transactionI
 	_, err := builder.RunWith(r.db).ExecContext(ctx)
 	return err
 }
+
+func (r *AccountRepository) ListWithdrawals(ctx context.Context, userID domain.UserID) ([]domain.Withdrawal, error) {
+	builder := squirrel.StatementBuilder.
+		PlaceholderFormat(squirrel.Dollar).
+		Select("order_num", "withdraw", "processed_at").
+		From(`"sufirmart"."transaction"`).
+		Where(squirrel.And{
+			squirrel.Eq{"user_id": userID.String()},
+			squirrel.Eq{"status": int16(domain.TransactionStatusProcessed)},
+			squirrel.Gt{"withdraw": 0},
+		}).
+		OrderBy(`"processed_at" DESC`)
+
+	rows, err := builder.RunWith(r.db).QueryContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []domain.Withdrawal
+	for rows.Next() {
+		var w domain.Withdrawal
+		if err := rows.Scan(&w.OrderNum, &w.Sum, &w.ProcessedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, w)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
