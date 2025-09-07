@@ -290,5 +290,34 @@ func (s MartApi) PostApiUserRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s MartApi) GetApiUserWithdrawals(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	ctx := r.Context()
+	items, err := s.accountsRep.ListWithdrawals(ctx, userID)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if len(items) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	resp := make([]Withdrawal, 0, len(items))
+	for _, it := range items {
+		resp = append(resp, Withdrawal{
+			Order:       it.OrderNum,
+			Sum:         float32(it.Sum),
+			ProcessedAt: it.ProcessedAt,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
 }
