@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"sufirmart/internal/order"
 	"sufirmart/internal/repository"
 	"sufirmart/internal/security"
+	"sufirmart/internal/tools/db"
 	"sufirmart/internal/user"
 	"time"
 )
@@ -24,10 +26,11 @@ type MartApi struct {
 	ordersRep   *repository.OrderRepository
 	accountsRep *repository.AccountRepository
 	processor   *order.Processor
+	db          *sql.DB
 }
 
-func NewApi(authSvc auth.Authentication, userSvc *user.UserService, ordersRep *repository.OrderRepository, accountsRep *repository.AccountRepository, processor *order.Processor) MartApi {
-	return MartApi{authSvc: authSvc, userSvc: userSvc, ordersRep: ordersRep, accountsRep: accountsRep, processor: processor}
+func NewApi(authSvc auth.Authentication, userSvc *user.UserService, ordersRep *repository.OrderRepository, accountsRep *repository.AccountRepository, processor *order.Processor, dbConn *sql.DB) MartApi {
+	return MartApi{authSvc: authSvc, userSvc: userSvc, ordersRep: ordersRep, accountsRep: accountsRep, processor: processor, db: dbConn}
 }
 
 func (s MartApi) GetApiUserBalance(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +58,65 @@ func (s MartApi) GetApiUserBalance(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s MartApi) PostApiUserBalanceWithdraw(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req WithdrawRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if !security.OrderNumValidation(req.Order) {
+		http.Error(w, "invalid order number", http.StatusUnprocessableEntity)
+		return
+	}
+	if req.Sum <= 0 {
+		http.Error(w, "invalid sum", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Регистрируем транзакцию со "суммой списания" (в withdraw).
+	txID, err := s.accountsRep.RegisterTransaction(ctx, userID, req.Order, -float64(req.Sum), "User withdraw")
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	var errInsufficient = errors.New("insufficient funds")
+	_, trErr := db.WrapTransaction(ctx, s.db, func(txCtx context.Context) (any, error) {
+		bal, err := s.accountsRep.GetBalance(txCtx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		if bal.Current() >= float64(req.Sum) {
+			if err := s.accountsRep.ApproveTransaction(txCtx, txID, 0.0); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		}
+
+		// Недостаточно средств — отменяем транзакцию списания
+		if err := s.accountsRep.CancelTransaction(txCtx, txID, "insufficient funds"); err != nil {
+			return nil, err
+		}
+		return nil, errInsufficient
+	})
+	if trErr != nil {
+		if errors.Is(trErr, errInsufficient) {
+			http.Error(w, "insufficient funds", http.StatusPaymentRequired)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s MartApi) PostApiUserLogin(w http.ResponseWriter, r *http.Request) {

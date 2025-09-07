@@ -6,6 +6,7 @@ import (
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"math"
 	"sufirmart/internal/domain"
 )
 
@@ -21,7 +22,7 @@ func NewAccountRepository(db *sql.DB, logger *zap.Logger) *AccountRepository {
 func (r *AccountRepository) GetBalance(ctx context.Context, userID domain.UserID) (*domain.Balance, error) {
 	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
-	query, args, err := sb.
+	builder := sb.
 		Select(
 			`COALESCE(SUM("accrual"), 0)`,
 			`COALESCE(SUM("withdraw"), 0)`,
@@ -30,14 +31,9 @@ func (r *AccountRepository) GetBalance(ctx context.Context, userID domain.UserID
 		Where(squirrel.And{
 			squirrel.Eq{"user_id": userID.String()},
 			squirrel.Eq{"status": int16(domain.TransactionStatusProcessed)},
-		}).
-		ToSql()
-	if err != nil {
-		return nil, err
-	}
-
+		})
 	var accrued, withdrawn sql.NullFloat64
-	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&accrued, &withdrawn); err != nil {
+	if err := builder.RunWith(r.db).QueryRowContext(ctx).Scan(&accrued, &withdrawn); err != nil {
 		return nil, err
 	}
 
@@ -46,13 +42,21 @@ func (r *AccountRepository) GetBalance(ctx context.Context, userID domain.UserID
 	return &balance, nil
 }
 
-func (r *AccountRepository) RegisterTransaction(ctx context.Context, userID domain.UserID, orderNum string, accrual float64, comment string) (string, error) {
+func (r *AccountRepository) RegisterTransaction(ctx context.Context, userID domain.UserID, orderNum string, sum float64, comment string) (string, error) {
 	transactionID := uuid.NewString()
+
+	withdraw, accrual := 0.0, 0.0
+	if sum < 0 {
+		withdraw = math.Abs(sum)
+	} else {
+		accrual = math.Abs(sum)
+	}
+
 	builder := squirrel.StatementBuilder.
 		PlaceholderFormat(squirrel.Dollar).
 		Insert(`"sufirmart"."transaction"`).
 		Columns("id", "user_id", "order_num", "accrual", "withdraw", "status", "comment").
-		Values(transactionID, userID.String(), orderNum, accrual, 0.0, int16(domain.TransactionStatusPlanned), comment)
+		Values(transactionID, userID.String(), orderNum, accrual, withdraw, int16(domain.TransactionStatusPlanned), comment)
 
 	_, err := builder.RunWith(r.db).ExecContext(ctx)
 	if err != nil {

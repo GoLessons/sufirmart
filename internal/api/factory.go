@@ -25,7 +25,7 @@ func InitApi(c *dependencies.Container) http.Handler {
 		c.WorkerPool(),
 	)
 
-	apiServer := NewApi(authSvc, userSvc, ordersRepo, accountsRepo, orderProcessor)
+	apiServer := NewApi(authSvc, userSvc, ordersRepo, accountsRepo, orderProcessor, c.Db())
 
 	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
 	gzipMiddleware := middleware.NewGzipMiddleware()
