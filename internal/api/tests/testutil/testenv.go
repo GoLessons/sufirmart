@@ -17,7 +17,7 @@ import (
 	"os"
 	"strings"
 	"sufirmart/internal/accrual"
-	"sufirmart/internal/api"
+	"sufirmart/internal/api/handler"
 	"sufirmart/internal/config"
 	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
@@ -70,7 +70,7 @@ func NewTester(t *testing.T) *Tester {
 
 	c := dependencies.NewContainer(logger, cfg, database, accReader, wp)
 
-	router := api.InitApi(c)
+	router := handler.InitApi(c)
 
 	doc, loadErr := openapi3.NewLoader().LoadFromFile("../../../specification.yaml")
 	require.NoError(t, loadErr, "failed to load OpenAPI spec from specification.yaml")

@@ -15,7 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"sufirmart/internal/accrual"
-	"sufirmart/internal/api"
+	"sufirmart/internal/api/handler"
 	"sufirmart/internal/config"
 	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
@@ -56,7 +56,7 @@ func run(c *dependencies.Container) (err error) {
 		c.Logger().Fatal("failed to gracefully shutdown the service")
 	})
 
-	mainHandler := api.InitApi(c)
+	mainHandler := handler.InitApi(c)
 
 	server := &http.Server{
 		Handler: mainHandler,
