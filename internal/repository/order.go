@@ -69,12 +69,23 @@ func (r *OrderRepository) Save(ctx context.Context, order *domain.Order) error {
 func (r *OrderRepository) ListByUser(ctx context.Context, userID domain.UserID) ([]*domain.Order, error) {
 	builder := squirrel.StatementBuilder.
 		PlaceholderFormat(squirrel.Dollar).
-		Select("user_id", "order_num", "status", "uploaded_at").
+		Select(
+			"user_id",
+			"order_num",
+			"status",
+			"uploaded_at",
+			`(SELECT t.accrual FROM "sufirmart"."transaction" t
+			  WHERE t.user_id = "sufirmart"."order".user_id
+			    AND t.order_num = "sufirmart"."order".order_num
+			    AND t.status = 1          -- domain.TransactionStatusProcessed
+			    AND t.accrual > 0
+			  ORDER BY t.processed_at DESC
+			  LIMIT 1) AS accrual`,
+		).
 		From(`"sufirmart"."order"`).
 		Where(squirrel.Eq{"user_id": userID.String()}).
 		OrderBy(`"uploaded_at" DESC`)
 
-	// ВАЖНО: привязываем соединение к билдеру перед QueryContext
 	rows, err := builder.RunWith(r.db).QueryContext(ctx)
 	if err != nil {
 		return nil, err
@@ -90,12 +101,18 @@ func (r *OrderRepository) ListByUser(ctx context.Context, userID domain.UserID) 
 			orderNum  string
 			status    int16
 			uploaded  time.Time
+			accrual   sql.NullFloat64
 		)
-		if err := rows.Scan(&userIDStr, &orderNum, &status, &uploaded); err != nil {
+		if err := rows.Scan(&userIDStr, &orderNum, &status, &uploaded, &accrual); err != nil {
 			return nil, err
 		}
 
-		o, err := buildOrder(userIDStr, orderNum, status, uploaded, nil)
+		var accrPtr *float64
+		if accrual.Valid {
+			accrPtr = &accrual.Float64
+		}
+
+		o, err := buildOrder(userIDStr, orderNum, status, uploaded, accrPtr)
 		if err != nil {
 			return nil, err
 		}
