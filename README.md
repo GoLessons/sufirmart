@@ -1,6 +1,6 @@
 # Выпускной проект
 
-[![coverage](https://img.shields.io/endpoint?url=https://golessons.github.io/sufirmart/coverage-badge.json)](https://golessons.github.io/sufirmart/coverage.html)
+[![coverage](https://img.shields.io/endpoint?url=https://golessons.github.io/sufirmart/coverage-badge.json)](https://golessons.github.io/sufirmart/index.html)
 [![gophermart](https://github.com/GoLessons/sufirmart/actions/workflows/gophermart.yml/badge.svg)](https://github.com/GoLessons/sufirmart/actions/workflows/gophermart.yml)
 [![statictest](https://github.com/GoLessons/sufirmart/actions/workflows/statictest.yml/badge.svg)](https://github.com/GoLessons/sufirmart/actions/workflows/statictest.yml)
 [![statictest](https://github.com/GoLessons/sufirmart/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/GoLessons/sufirmart/actions/workflows/golangci-lint.yml)
