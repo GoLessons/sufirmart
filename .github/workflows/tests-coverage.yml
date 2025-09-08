@@ -106,6 +106,10 @@ jobs:
           }
           EOF
 
+      - name: Generate HTML coverage report
+        run: |
+          go tool cover -html=coverage.out -o ./.pages/index.html
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
