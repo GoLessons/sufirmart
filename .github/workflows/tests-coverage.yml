@@ -78,18 +78,28 @@ jobs:
       - name: Compute coverage value
         id: cov
         run: |
-          pct=$(go tool cover -coverpkg=./... -func=coverage.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
-          echo "pct=$pct" >> $GITHUB_OUTPUT
-          # Calculate color by thresholds
+          set -e
+          if [ ! -s coverage.out ]; then
+            echo "coverage.out not found or empty" >&2
+            exit 1
+          fi
+          pct=$(go tool cover -func=coverage.out | awk '/^[[:space:]]*total:/ {print $NF}' | tr -d '%')
+          if [ -z "$pct" ]; then
+            echo "Failed to parse total coverage, dumping cover func output for debug:" >&2
+            go tool cover -func=coverage.out || true
+            pct="0"
+          fi
+          echo "pct=$pct" >> "$GITHUB_OUTPUT"
+
           val=${pct%.*}
           if [ -z "$val" ]; then val=0; fi
-          if   [ "$val" -ge 90 ]; then color=brightgreen
-          elif [ "$val" -ge 80 ]; then color=green
-          elif [ "$val" -ge 70 ]; then color=yellowgreen
+          if   [ "$val" -ge 80 ]; then color=brightgreen
+          elif [ "$val" -ge 70 ]; then color=green
+          elif [ "$val" -ge 60 ]; then color=yellowgreen
           elif [ "$val" -ge 50 ]; then color=yellow
           else color=red
           fi
-          echo "color=$color" >> $GITHUB_OUTPUT
+          echo "color=$color" >> "$GITHUB_OUTPUT"
 
       - name: Write Shields endpoint JSON
         run: |
@@ -108,6 +118,7 @@ jobs:
 
       - name: Generate HTML coverage report
         run: |
+          mkdir -p ./.pages
           go tool cover -html=coverage.out -o ./.pages/index.html
 
       - name: Upload Pages artifact
