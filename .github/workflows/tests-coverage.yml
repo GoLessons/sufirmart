@@ -78,7 +78,7 @@ jobs:
       - name: Compute coverage value
         id: cov
         run: |
-          pct=$(go tool cover -covermode=atomic -coverpkg=./... -func=coverage.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
+          pct=$(go tool cover -coverpkg=./... -func=coverage.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
           echo "pct=$pct" >> $GITHUB_OUTPUT
           # Calculate color by thresholds
           val=${pct%.*}
@@ -102,7 +102,7 @@ jobs:
             "label": "coverage",
             "message": "${pct}%",
             "color": "${color}",
-            "cacheSeconds": 300
+            "cacheSeconds": 60
           }
           EOF
 
