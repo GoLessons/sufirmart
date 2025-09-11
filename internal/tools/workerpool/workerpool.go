@@ -1,23 +1,28 @@
 package workerpool
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
 )
 
 type Task func() error
+type OnError func(err error)
+
+const (
+	stateInit uint32 = iota
+	stateStarted
+	stateStopped
+)
 
 type WorkerPool struct {
 	workerCount int
 	tasks       chan Task
 	wgWorkers   sync.WaitGroup
 	wgTasks     sync.WaitGroup
-	once        sync.Once
 	onError     OnError
-	started     uint32 // 0 - not started, 1 - started
+	state       uint32 // 0 - init, 1 - started, 2 - stopped
 }
-
-type OnError func(err error)
 
 func New(workerCount int, queueSize int) *WorkerPool {
 	return &WorkerPool{
@@ -27,30 +32,48 @@ func New(workerCount int, queueSize int) *WorkerPool {
 }
 
 func (wp *WorkerPool) Start() {
-	if atomic.LoadUint32(&wp.started) == 1 {
-		return
+	if !atomic.CompareAndSwapUint32(&wp.state, stateInit, stateStarted) {
+		return // уже стартовал или остановлен
 	}
 
-	atomic.StoreUint32(&wp.started, 1)
 	for i := 0; i < wp.workerCount; i++ {
 		wp.wgWorkers.Add(1)
-		go func(id int) {
+		go func() {
 			defer wp.wgWorkers.Done()
 			for task := range wp.tasks {
-				if task != nil {
+				func() {
+					defer wp.wgTasks.Done()
+					if task == nil {
+						return
+					}
 					if err := task(); err != nil && wp.onError != nil {
 						wp.onError(err)
 					}
-				}
-				wp.wgTasks.Done()
+				}()
 			}
-		}(i)
+		}()
 	}
 }
 
-func (wp *WorkerPool) Add(task Task) {
+func (wp *WorkerPool) Add(task Task) (err error) {
+	state := atomic.LoadUint32(&wp.state)
+	if state == stateStopped {
+		return errors.New("workerpool: stopped")
+	}
+
 	wp.wgTasks.Add(1)
+
+	// Если канал закрыли между проверкой состояния и отправкой — не паниковать.
+	defer func() {
+		if r := recover(); r != nil {
+			// Канал закрыт, снимаем добавленный счетчик и возвращаем ошибку
+			wp.wgTasks.Done()
+			err = errors.New("workerpool: stopped")
+		}
+	}()
+
 	wp.tasks <- task
+	return nil
 }
 
 func (wp *WorkerPool) OnError(onError OnError) {
@@ -58,17 +81,12 @@ func (wp *WorkerPool) OnError(onError OnError) {
 }
 
 func (wp *WorkerPool) Stop() {
-	wp.once.Do(func() {
-		close(wp.tasks)
+	if !atomic.CompareAndSwapUint32(&wp.state, stateStarted, stateStopped) {
+		return // не был запущен или уже остановлен
+	}
 
-		if atomic.LoadUint32(&wp.started) == 1 {
-			wp.wgTasks.Wait()
-			wp.wgWorkers.Wait()
-			return
-		}
+	close(wp.tasks)
 
-		for range wp.tasks {
-			wp.wgTasks.Done()
-		}
-	})
+	wp.wgTasks.Wait()
+	wp.wgWorkers.Wait()
 }
