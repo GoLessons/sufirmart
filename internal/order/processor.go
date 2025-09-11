@@ -286,9 +286,14 @@ func (p *Processor) RecoverPending(ctx context.Context) error {
 }
 
 func (p *Processor) enqueue(ctx context.Context, number domain.OrderNumber, allowProcessing bool) {
-	p.wp.Add(func() error {
+	if err := p.wp.Add(func() error {
 		p.logger.Info("processing order task started", zap.String("order_number", number.String()))
 		p.processOrder(ctx, number, allowProcessing)
 		return nil
-	})
+	}); err != nil {
+		p.logger.Error("failed to enqueue order processing task",
+			zap.String("order_number", number.String()),
+			zap.Error(err),
+		)
+	}
 }

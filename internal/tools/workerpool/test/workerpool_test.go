@@ -22,13 +22,14 @@ func TestWorkerPool_ExecutesAllTasks(t *testing.T) {
 	wg.Add(tasksCount)
 
 	for i := 0; i < tasksCount; i++ {
-		wp.Add(func() error {
+		err := wp.Add(func() error {
 			defer wg.Done()
 			mu.Lock()
 			completed++
 			mu.Unlock()
 			return nil
 		})
+		assert.NoError(t, err)
 	}
 
 	wg.Wait()
@@ -59,15 +60,17 @@ func TestWorkerPool_OnErrorCalledForEachError(t *testing.T) {
 
 	for i := 0; i < total; i++ {
 		if i < errorTasks {
-			wp.Add(func() error {
+			err := wp.Add(func() error {
 				defer wg.Done()
 				return errors.New("expected error")
 			})
+			assert.NoError(t, err)
 		} else {
-			wp.Add(func() error {
+			err := wp.Add(func() error {
 				defer wg.Done()
 				return nil
 			})
+			assert.NoError(t, err)
 		}
 	}
 
@@ -110,7 +113,8 @@ func TestWorkerPool_ConcurrencyLevel(t *testing.T) {
 	}
 
 	for i := 0; i < tasksCount; i++ {
-		wp.Add(task)
+		err := wp.Add(task)
+		assert.NoError(t, err)
 	}
 
 	wg.Wait()
@@ -126,11 +130,12 @@ func TestWorkerPool_StopIsIdempotent(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	wp.Add(func() error {
+	err := wp.Add(func() error {
 		defer wg.Done()
 		time.Sleep(50 * time.Millisecond)
 		return nil
 	})
+	assert.NoError(t, err)
 
 	wg.Wait()
 
@@ -148,10 +153,11 @@ func TestWorkerPool_ErrorWithoutOnErrorDoesNotPanic(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 
-		wp.Add(func() error {
+		err := wp.Add(func() error {
 			defer wg.Done()
 			return errors.New("any error")
 		})
+		assert.NoError(t, err)
 
 		wg.Wait()
 		wp.Stop()
