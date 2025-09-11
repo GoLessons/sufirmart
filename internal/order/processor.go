@@ -146,7 +146,11 @@ func (p *Processor) touchOrder(ctx context.Context, number domain.OrderNumber, a
 			return nil, err
 		}
 
-		if !(order.Status() == domain.OrderStatusNew || (allowProcessing && order.Status() == domain.OrderStatusProcessing)) {
+		if order == nil {
+			return nil, sql.ErrNoRows
+		}
+
+		if order.Status() != domain.OrderStatusNew && (!allowProcessing || order.Status() != domain.OrderStatusProcessing) {
 			p.logger.Info("order cannot be processed",
 				zap.String("order_number", order.Number().String()),
 				zap.Int16("status", int16(order.Status())))
