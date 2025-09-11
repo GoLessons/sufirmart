@@ -48,16 +48,20 @@ func (p *Processor) Process(ctx context.Context, number domain.OrderNumber) {
 		return
 	}
 
-	p.wp.Add(func() error {
-		p.logger.Info("processing order task started", zap.String("order_number", number.String()))
-		p.processOrder(ctx, number)
-		return nil
-	})
+	p.enqueue(ctx, number, false)
 }
 
-func (p *Processor) processOrder(ctx context.Context, number domain.OrderNumber) {
-	order := p.touchOrder(ctx, number)
+func (p *Processor) processOrder(ctx context.Context, number domain.OrderNumber, allowProcessing bool) {
+	order := p.touchOrder(ctx, number, allowProcessing)
 	if order == nil {
+		return
+	}
+
+	err := p.account.CancelPlannedTransactionsByOrder(ctx, order.UserID(), order.Number().String(), "recovered duplicate")
+	if err != nil {
+		p.logger.Error("failed to cancel planned transactions",
+			zap.Error(err),
+			zap.String("order_number", number.String()))
 		return
 	}
 
@@ -65,7 +69,7 @@ func (p *Processor) processOrder(ctx context.Context, number domain.OrderNumber)
 		ctx,
 		order.UserID(),
 		order.Number().String(),
-		0.0, // пока не знаем сумму транзакции
+		0.0,
 		"Order accrual",
 	)
 	if err != nil {
@@ -130,7 +134,7 @@ func (p *Processor) processOrder(ctx context.Context, number domain.OrderNumber)
 	}
 }
 
-func (p *Processor) touchOrder(ctx context.Context, number domain.OrderNumber) *domain.Order {
+func (p *Processor) touchOrder(ctx context.Context, number domain.OrderNumber, allowProcessing bool) *domain.Order {
 	result, err := db.WrapTransaction(ctx, p.db, func(txCtx context.Context) (*domain.Order, error) {
 		order, err := p.orders.GetByNumber(txCtx, number, true)
 		if err != nil {
@@ -142,7 +146,7 @@ func (p *Processor) touchOrder(ctx context.Context, number domain.OrderNumber) *
 			return nil, err
 		}
 
-		if !order.CanBeProcessed() {
+		if !(order.Status() == domain.OrderStatusNew || (allowProcessing && order.Status() == domain.OrderStatusProcessing)) {
 			p.logger.Info("order cannot be processed",
 				zap.String("order_number", order.Number().String()),
 				zap.Int16("status", int16(order.Status())))
@@ -263,4 +267,24 @@ func (p *Processor) successOrder(ctx context.Context, order *domain.Order, trans
 	})
 
 	return err
+}
+
+func (p *Processor) RecoverPending(ctx context.Context) error {
+	statuses := []domain.OrderStatus{domain.OrderStatusNew, domain.OrderStatusProcessing}
+	orders, err := p.orders.ListByStatuses(ctx, statuses)
+	if err != nil {
+		return err
+	}
+	for _, o := range orders {
+		p.enqueue(ctx, o.Number(), true)
+	}
+	return nil
+}
+
+func (p *Processor) enqueue(ctx context.Context, number domain.OrderNumber, allowProcessing bool) {
+	p.wp.Add(func() error {
+		p.logger.Info("processing order task started", zap.String("order_number", number.String()))
+		p.processOrder(ctx, number, allowProcessing)
+		return nil
+	})
 }

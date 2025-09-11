@@ -74,7 +74,8 @@ func NewPostApiUserOrdersHandler(orders *repository.OrderRepository, processor *
 		}
 
 		if processor != nil {
-			processor.Process(context.TODO(), orderNum)
+			bgCtx := context.WithoutCancel(r.Context())
+			processor.Process(bgCtx, orderNum)
 		}
 
 		w.WriteHeader(http.StatusAccepted)

@@ -125,3 +125,47 @@ func (r *OrderRepository) ListByUser(ctx context.Context, userID domain.UserID) 
 
 	return orders, nil
 }
+
+func (r *OrderRepository) ListByStatuses(ctx context.Context, statuses []domain.OrderStatus) ([]*domain.Order, error) {
+	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	intStatuses := make([]int16, 0, len(statuses))
+	for _, s := range statuses {
+		intStatuses = append(intStatuses, int16(s))
+	}
+
+	builder := sb.
+		Select("user_id", "order_num", "status", "uploaded_at").
+		From(`"sufirmart"."order"`).
+		Where(squirrel.Eq{"status": intStatuses}).
+		OrderBy(`"uploaded_at" ASC`)
+
+	rows, err := builder.RunWith(r.db).QueryContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func(rows *sql.Rows) { _ = rows.Close() }(rows)
+
+	var orders []*domain.Order
+	for rows.Next() {
+		var (
+			userIDStr string
+			orderNum  string
+			status    int16
+			uploaded  time.Time
+		)
+		if err := rows.Scan(&userIDStr, &orderNum, &status, &uploaded); err != nil {
+			return nil, err
+		}
+
+		o, err := buildOrder(userIDStr, orderNum, status, uploaded, nil)
+		if err != nil {
+			return nil, err
+		}
+		orders = append(orders, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}

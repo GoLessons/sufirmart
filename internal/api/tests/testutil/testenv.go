@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"erro
 	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
@@ -171,6 +172,9 @@ func (e *Tester) SeeInDatabase(table string, criteria map[string]interface{}) (b
 
 	var exists bool
 	err := e.DB.QueryRow(query, values...).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
 
 	return exists, err
 }

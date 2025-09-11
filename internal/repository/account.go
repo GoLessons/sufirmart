@@ -124,3 +124,19 @@ func (r *AccountRepository) ListWithdrawals(ctx context.Context, userID domain.U
 
 	return out, nil
 }
+
+func (r *AccountRepository) CancelPlannedTransactionsByOrder(ctx context.Context, userID domain.UserID, orderNum string, reason string) error {
+	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	update := sb.Update(`"sufirmart"."transaction"`).
+		Set("status", int16(domain.TransactionStatusCanceled)).
+		Set("comment", reason).
+		Set("processed_at", squirrel.Expr("NOW()")).
+		Where(squirrel.And{
+			squirrel.Eq{"user_id": userID.String()},
+			squirrel.Eq{"order_num": orderNum},
+			squirrel.Eq{"status": int16(domain.TransactionStatusPlanned)},
+		})
+
+	_, err := update.RunWith(r.db).ExecContext(ctx)
+	return err
+}

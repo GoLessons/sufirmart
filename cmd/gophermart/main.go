@@ -20,6 +20,8 @@ import (
 	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
 	"sufirmart/internal/logger"
+	"sufirmart/internal/order"
+	"sufirmart/internal/
 	"sufirmart/internal/tools/workerpool"
 	"syscall"
 	"time"
@@ -76,6 +78,13 @@ func run(c *dependencies.Container) (err error) {
 		if wp != nil {
 			wp.Start()
 			c.Logger().Info("worker pool started")
+
+			ordersRepo := repository.NewOrderRepository(c.Db(), c.Logger())
+			accountsRepo := repository.NewAccountRepository(c.Db(), c.Logger())
+			proc := order.NewProcessor(ordersRepo, accountsRepo, c.AccrualReader(), c.Logger(), c.Db(), wp)
+			if recErr := proc.RecoverPending(ctx); recErr != nil {
+				c.Logger().Error("failed to recover pending orders", zap.Error(recErr))
+			}
 		}
 
 		ln, err := net.Listen("tcp", server.Addr)
