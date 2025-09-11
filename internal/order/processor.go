@@ -88,7 +88,7 @@ func (p *Processor) processOrder(ctx context.Context, number domain.OrderNumber,
 	})
 	strategy := NewAdaptiveStrategy(time.Second, 0)
 
-	_, err = rep.Repeat(strategy, func() (any, error) {
+	_, err = rep.Repeat(ctx, strategy, func() (any, error) {
 		accrualInfo, err := p.accrualReader.Get(number.String())
 		if err != nil {
 			return nil, err

@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"sufirmart/internal/tools/repeater"
@@ -18,7 +19,7 @@ func TestRepeatSuccessFirstAttempt(t *testing.T) {
 		return "success", nil
 	}
 
-	result, err := r.Repeat(strategy, action)
+	result, err := r.Repeat(context.Background(), strategy, action)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "success", result)
@@ -38,7 +39,7 @@ func TestRepeatSuccessAfterRetry(t *testing.T) {
 		return "success", nil
 	}
 
-	result, err := r.Repeat(strategy, action)
+	result, err := r.Repeat(context.Background(), strategy, action)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "success", result)
@@ -56,7 +57,7 @@ func TestRepeatFailAllAttempts(t *testing.T) {
 		return nil, expectedErr
 	}
 
-	result, err := r.Repeat(strategy, action)
+	result, err := r.Repeat(context.Background(), strategy, action)
 
 	assert.Error(t, err)
 	assert.Equal(t, expectedErr, err)
@@ -77,7 +78,7 @@ func TestRepeatWithOnErrorCallback(t *testing.T) {
 		return nil, errors.New("ошибка")
 	}
 
-	_, _ = r.Repeat(strategy, action)
+	_, _ = r.Repeat(context.Background(), strategy, action)
 
 	assert.Equal(t, 2, callbackCalled, "OnError колбэк должен быть вызван дважды")
 }
@@ -95,7 +96,7 @@ func TestRepeatWithInfiniteAttempts(t *testing.T) {
 		return "success", nil
 	}
 
-	result, err := r.Repeat(strategy, action)
+	result, err := r.Repeat(context.Background(), strategy, action)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "success", result)
