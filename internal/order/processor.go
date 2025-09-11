@@ -135,7 +135,7 @@ func (p *Processor) processOrder(ctx context.Context, number domain.OrderNumber,
 }
 
 func (p *Processor) touchOrder(ctx context.Context, number domain.OrderNumber, allowProcessing bool) *domain.Order {
-	result, err := db.WrapTransaction(ctx, p.db, func(txCtx context.Context) (*domain.Order, error) {
+	result, err := db.WrapTransaction(ctx, p.db, nil, func(txCtx context.Context) (*domain.Order, error) {
 		order, err := p.orders.GetByNumber(txCtx, number, true)
 		if err != nil {
 			p.logger.Error(
@@ -189,7 +189,7 @@ func (p *Processor) touchOrder(ctx context.Context, number domain.OrderNumber, a
 }
 
 func (p *Processor) failOrder(ctx context.Context, order *domain.Order, transactionID string, reason string) error {
-	_, err := db.WrapTransaction(ctx, p.db, func(txCtx context.Context) (any, error) {
+	_, err := db.WrapTransaction(ctx, p.db, nil, func(txCtx context.Context) (any, error) {
 		err := order.ChangeStatus(domain.OrderStatusInvalid)
 		if err != nil {
 			p.logger.Error(
@@ -233,7 +233,7 @@ func (p *Processor) failOrder(ctx context.Context, order *domain.Order, transact
 }
 
 func (p *Processor) successOrder(ctx context.Context, order *domain.Order, transactionID string, accrualValue float64) error {
-	_, err := db.WrapTransaction(ctx, p.db, func(txCtx context.Context) (bool, error) {
+	_, err := db.WrapTransaction(ctx, p.db, nil, func(txCtx context.Context) (bool, error) {
 		err := order.ChangeStatus(domain.OrderStatusProcessed)
 		if err != nil {
 			p.logger.Error(

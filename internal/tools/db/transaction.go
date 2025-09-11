@@ -8,11 +8,16 @@ import (
 func WrapTransaction[T any](
 	ctx context.Context,
 	db *sql.DB,
+	opts *sql.TxOptions,
 	fn func(ctx context.Context) (T, error),
 ) (T, error) {
 	var zero T
 
-	tx, err := db.BeginTx(ctx, nil)
+	if opts == nil {
+		opts = &sql.TxOptions{Isolation: sql.LevelDefault}
+	}
+
+	tx, err := db.BeginTx(ctx, opts)
 	if err != nil {
 		return zero, err
 	}

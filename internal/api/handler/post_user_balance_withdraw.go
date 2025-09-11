@@ -43,7 +43,7 @@ func NewPostApiUserBalanceWithdrawHandler(accounts *repository.AccountRepository
 		}
 
 		errInsufficient := errors.New("insufficient funds")
-		_, trErr := db.WrapTransaction(ctx, dbConn, func(txCtx context.Context) (any, error) {
+		_, trErr := db.WrapTransaction(ctx, dbConn, &sql.TxOptions{Isolation: sql.LevelSerializable}, func(txCtx context.Context) (any, error) {
 			bal, err := accounts.GetBalance(txCtx, userID)
 			if err != nil {
 				return nil, err
