@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"erro
+	"errors"
 	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
