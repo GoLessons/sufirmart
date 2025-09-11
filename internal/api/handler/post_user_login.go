@@ -12,21 +12,21 @@ func NewPostApiUserLoginHandler(authSvc auth.Authentication) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var creds api.UserCredentials
 		if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
-			http.Error(w, "invalid json", http.StatusBadRequest)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 		if creds.Login == "" || creds.Password == "" {
-			http.Error(w, "login and password are required", http.StatusBadRequest)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 
 		token, err := authSvc.Authenticate(creds.Login, creds.Password)
 		if err != nil {
 			if errors.Is(err, auth.ErrInvalidCredentials) {
-				http.Error(w, "invalid credentials", http.StatusUnauthorized)
+				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return
 			}
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 

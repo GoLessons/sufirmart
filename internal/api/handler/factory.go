@@ -40,7 +40,7 @@ func InitApi(c *dependencies.Container) http.Handler {
 
 	logMiddleware := middleware.NewLoggingMiddleware(c.Logger())
 	gzipMiddleware := middleware.NewGzipMiddleware()
-	authMiddleware := middleware.NewAuthMiddleware(authSvc)
+	authMiddleware := middleware.NewAuthMiddleware(authSvc, c.Logger())
 
 	options := api.ChiServerOptions{
 		BaseRouter: chi.NewRouter(),

@@ -16,6 +16,6 @@ func AccrualStatusFromString(status string) (domain.AccrualStatus, error) {
 	case "PROCESSED":
 		return domain.AccrualStatusProcessed, nil
 	default:
-		return domain.AccrualStatusUnknown, fmt.Errorf("unknown accrual status: %s", status)
+		return domain.AccrualStatusUnspecified, fmt.Errorf("unknown accrual status: %s", status)
 	}
 }

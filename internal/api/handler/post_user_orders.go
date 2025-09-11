@@ -18,35 +18,35 @@ func NewPostApiUserOrdersHandler(orders *repository.OrderRepository, processor *
 	return func(w http.ResponseWriter, r *http.Request) {
 		ct := r.Header.Get("Content-Type")
 		if !strings.HasPrefix(ct, "text/plain") {
-			http.Error(w, "invalid content type", http.StatusBadRequest)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "invalid body", http.StatusBadRequest)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 		rawOrderNum := strings.TrimSpace(string(body))
 		if rawOrderNum == "" {
-			http.Error(w, "invalid order number", http.StatusUnprocessableEntity)
+			http.Error(w, http.StatusText(http.StatusUnprocessableEntity), http.StatusUnprocessableEntity)
 			return
 		}
 
 		if !security.OrderNumValidation(rawOrderNum) {
-			http.Error(w, "invalid order number", http.StatusUnprocessableEntity)
+			http.Error(w, http.StatusText(http.StatusUnprocessableEntity), http.StatusUnprocessableEntity)
 			return
 		}
 
 		userID, ok := auth.UserIDFromContext(r.Context())
 		if !ok || userID == "" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
 		orderNum, err := domain.NewOrderNumber(rawOrderNum)
 		if err != nil {
-			http.Error(w, "invalid order number", http.StatusUnprocessableEntity)
+			http.Error(w, http.StatusText(http.StatusUnprocessableEntity), http.StatusUnprocessableEntity)
 			return
 		}
 
@@ -54,7 +54,7 @@ func NewPostApiUserOrdersHandler(orders *repository.OrderRepository, processor *
 		existing, err := orders.GetByNumber(ctx, orderNum, false)
 		if err != nil {
 			if !errors.Is(err, repository.ErrOrderNotFound) {
-				http.Error(w, "internal error", http.StatusInternalServerError)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
 		} else if existing != nil {
@@ -62,14 +62,14 @@ func NewPostApiUserOrdersHandler(orders *repository.OrderRepository, processor *
 				w.WriteHeader(http.StatusOK)
 				return
 			}
-			http.Error(w, "order belongs to another user", http.StatusConflict)
+			http.Error(w, http.StatusText(http.StatusConflict), http.StatusConflict)
 			return
 		}
 
 		newOrder := domain.NewOrder(userID, orderNum, domain.OrderStatusNew, time.Now(), nil)
 		err = orders.Save(ctx, &newOrder)
 		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 

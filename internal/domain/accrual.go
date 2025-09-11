@@ -3,7 +3,7 @@ package domain
 type AccrualStatus int16
 
 const (
-	AccrualStatusUnknown AccrualStatus = iota
+	AccrualStatusUnspecified AccrualStatus = iota
 	AccrualStatusRegistered
 	AccrualStatusProcessing
 	AccrualStatusInvalid

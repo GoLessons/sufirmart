@@ -12,14 +12,14 @@ func NewGetApiUserWithdrawalsHandler(accounts *repository.AccountRepository) htt
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := auth.UserIDFromContext(r.Context())
 		if !ok || userID == "" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
 		ctx := r.Context()
 		items, err := accounts.ListWithdrawals(ctx, userID)
 		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 

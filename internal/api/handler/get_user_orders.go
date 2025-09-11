@@ -13,14 +13,14 @@ func NewGetApiUserOrdersHandler(orders *repository.OrderRepository) http.Handler
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := auth.UserIDFromContext(r.Context())
 		if !ok || userID == "" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
 		ctx := r.Context()
 		list, err := orders.ListByUser(ctx, userID)
 		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 
@@ -42,7 +42,7 @@ func NewGetApiUserOrdersHandler(orders *repository.OrderRepository) http.Handler
 			case domain.OrderStatusProcessed:
 				st = api.PROCESSED
 			default:
-				http.Error(w, "internal error", http.StatusInternalServerError)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
 

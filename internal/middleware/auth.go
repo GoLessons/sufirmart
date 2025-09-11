@@ -3,17 +3,18 @@ package middleware
 import (
 	"context"
 	"errors"
+	"go.uber.org/zap"
 	"net/http"
 	"strings"
 	"sufirmart/internal/auth"
 )
 
-func NewAuthMiddleware(authSvc auth.Authentication) func(http.Handler) http.Handler {
+func NewAuthMiddleware(authSvc auth.Authentication, logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authorization := r.Header.Get("Authorization")
 			if !strings.HasPrefix(authorization, "Bearer ") {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return
 			}
 			token := strings.TrimSpace(strings.TrimPrefix(authorization, "Bearer "))
@@ -22,14 +23,15 @@ func NewAuthMiddleware(authSvc auth.Authentication) func(http.Handler) http.Hand
 			if err != nil {
 				var ae *auth.AuthError
 				if errors.As(err, &ae) {
-					http.Error(w, "unauthorized", http.StatusUnauthorized)
+					http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 					return
 				}
-				http.Error(w, "internal server error", http.StatusInternalServerError)
+				logger.Error("auth middleware internal error", zap.Error(err), zap.String("method", r.Method), zap.String("path", r.URL.Path))
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
 			if uid == "" {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return
 			}
 

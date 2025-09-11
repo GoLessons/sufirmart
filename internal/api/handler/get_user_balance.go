@@ -12,14 +12,14 @@ func NewGetApiUserBalanceHandler(accounts *repository.AccountRepository) http.Ha
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := auth.UserIDFromContext(r.Context())
 		if !ok || userID == "" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
 		ctx := r.Context()
 		balance, err := accounts.GetBalance(ctx, userID)
 		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 
