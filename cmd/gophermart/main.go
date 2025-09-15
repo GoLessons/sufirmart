@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"go.uber.org/zap"
@@ -12,7 +11,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"os/signal"
 	"sufirmart/internal/accrual"
 	"sufirmart/internal/api/handler"
@@ -34,8 +32,6 @@ const (
 
 func main() {
 	c := InitContainer()
-
-	tryMigrateDB(c.Config(), c.Db(), c.Logger())
 
 	if err := run(c); err != nil {
 		c.Logger().Fatal("application error", zap.Error(err))
@@ -150,7 +146,7 @@ func InitContainer() *dependencies.Container {
 
 	appLogger.Info("application started with config", zap.Any("config", appConfig))
 
-	dbConnection, err := db.DBFactory(appConfig)
+	dbConnection, err := db.DBFactory(appConfig, appLogger)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -176,15 +172,4 @@ func InitContainer() *dependencies.Container {
 	)
 
 	return deps
-}
-
-func tryMigrateDB(cfg *config.AppConfig, dbConnection *sql.DB, serverLogger *zap.Logger) {
-	if cfg.DatabaseUri != "" {
-		migrator := db.NewMigrator(dbConnection, serverLogger, cfg.MigrationDir)
-		err := migrator.Up()
-		if err != nil {
-			serverLogger.Error("migrations error", zap.Error(err))
-			os.Exit(1)
-		}
-	}
 }

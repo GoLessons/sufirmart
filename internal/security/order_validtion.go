@@ -4,7 +4,6 @@ import (
 	"unicode"
 )
 
-// OrderNumValidation Проверка по алгоритму Луна
 func OrderNumValidation(number string) bool {
 	if number == "" {
 		return false

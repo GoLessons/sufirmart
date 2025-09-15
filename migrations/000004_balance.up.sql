@@ -1,4 +1,4 @@
-CREATE TABLE sufirmart.transaction (
+CREATE TABLE IF NOT EXISTS "sufirmart"."transaction" (
   id uuid NOT NULL,
   user_id uuid NOT NULL,
   order_id uuid NOT NULL,

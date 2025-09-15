@@ -37,11 +37,17 @@ func (migrator migrator) Up() error {
 		return err
 	}
 
-	versionBefore, _, err := m.Version()
+	versionBefore, dirty, err := m.Version()
 	if err != nil {
 		migrator.logger.Info("[Migrator] Database now don't have migtations")
 	} else {
 		migrator.logger.Info("[Migrator] Database now", zap.Uint("version", versionBefore))
+		if dirty {
+			migrator.logger.Warn("[Migrator] Database is dirty", zap.Uint("version", versionBefore))
+			if err := m.Force(int(versionBefore)); err != nil {
+				return err
+			}
+		}
 	}
 
 	err = m.Up()

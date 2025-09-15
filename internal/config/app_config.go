@@ -12,6 +12,7 @@ type AppConfig struct {
 	DatabaseUri    string `env:"DATABASE_URI"`
 	AccuralAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
 	MigrationDir   string `env:"MIGRATIONS_DIR"`
+	AutoMigrate    bool   `env:"AUTO_MIGRATE"`
 }
 
 type ConfigError struct {
@@ -42,11 +43,13 @@ func LoadConfig(args *map[string]any) (*AppConfig, error) {
 	v := viper.New()
 	v.SetDefault("RUN_ADDRESS", "0.0.0.0:8080")
 	v.SetDefault("MIGRATIONS_DIR", "./migrations")
+	v.SetDefault("AUTO_MIGRATE", true)
 
 	_ = v.BindEnv("RUN_ADDRESS")
 	_ = v.BindEnv("DATABASE_URI")
 	_ = v.BindEnv("ACCRUAL_SYSTEM_ADDRESS")
 	_ = v.BindEnv("MIGRATIONS_DIR")
+	_ = v.BindEnv("AUTO_MIGRATE")
 	v.AutomaticEnv()
 
 	pflag.StringP("address", "a", "", "server address and port (e.g., 0.0.0.0:8080)")
@@ -68,6 +71,7 @@ func LoadConfig(args *map[string]any) (*AppConfig, error) {
 		DatabaseUri:    v.GetString("DATABASE_URI"),
 		AccuralAddress: v.GetString("ACCRUAL_SYSTEM_ADDRESS"),
 		MigrationDir:   v.GetString("MIGRATIONS_DIR"),
+		AutoMigrate:    v.GetBool("AUTO_MIGRATE"),
 	}
 
 	if args != nil {
@@ -106,6 +110,11 @@ func redefineLocal(args *map[string]any, cfg *AppConfig) {
 	if val, ok := (*args)["MigrationDir"]; ok {
 		if strVal, ok := val.(string); ok {
 			cfg.MigrationDir = strVal
+		}
+	}
+	if val, ok := (*args)["AutoMigrate"]; ok {
+		if boolVal, ok := val.(bool); ok {
+			cfg.AutoMigrate = boolVal
 		}
 	}
 }

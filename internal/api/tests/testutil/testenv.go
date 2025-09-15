@@ -51,10 +51,11 @@ func NewTester(t *testing.T) *Tester {
 	cfg := &config.AppConfig{
 		DatabaseUri:  dsn,
 		MigrationDir: migrationsDir,
+		AutoMigrate:  false,
 	}
 	logger := NewTestLogger(t)
 
-	database, err := db.DBFactory(cfg)
+	database, err := db.DBFactory(cfg, logger)
 	require.NoError(t, err)
 
 	t.Cleanup(func() { _ = database.Close() })
@@ -67,7 +68,7 @@ func NewTester(t *testing.T) *Tester {
 		wp.Stop()
 	})
 
-	accReader := accrual.NewStubReader(nil)
+	accReader := accrual.NewStubReader()
 
 	c := dependencies.NewContainer(logger, cfg, database, accReader, wp)
 
@@ -75,7 +76,6 @@ func NewTester(t *testing.T) *Tester {
 
 	doc, loadErr := openapi3.NewLoader().LoadFromFile("../../../specification.yaml")
 	require.NoError(t, loadErr, "failed to load OpenAPI spec from specification.yaml")
-
 	return &Tester{
 		Container:     c,
 		Router:        router,

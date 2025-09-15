@@ -37,11 +37,6 @@ if [ -z "$TEST_DATABASE_URI" ]; then
   TEST_DATABASE_URI="postgresql://sufirmart:sufirmart@localhost:15432/$DB_NAME?sslmode=disable"
 fi
 
-if [ -z "$MIGRATIONS_DIR" ]; then
-  MIGRATIONS_DIR="$(pwd)/migrations"
-fi
-
 echo "Using TEST_DATABASE_URI=$TEST_DATABASE_URI"
-echo "Using MIGRATIONS_DIR=$MIGRATIONS_DIR"
 
-TEST_DATABASE_URI="$TEST_DATABASE_URI" MIGRATIONS_DIR="$MIGRATIONS_DIR" go test ./...
+TEST_DATABASE_URI="$TEST_DATABASE_URI" AUTO_MIGRATE=false go test ./...
