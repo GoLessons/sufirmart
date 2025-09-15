@@ -22,6 +22,7 @@ import (
 	"sufirmart/internal/config"
 	"sufirmart/internal/db"
 	"sufirmart/internal/dependencies"
+	"sufirmart/internal/domain"
 	"sufirmart/internal/security"
 	"sufirmart/internal/tools/workerpool"
 	"testing"
@@ -128,6 +129,20 @@ func (e *Tester) DoRaw(t *testing.T, method string, url string, body []byte, hea
 	e.Router.ServeHTTP(rr, req)
 	req.Body = io.NopCloser(bytes.NewReader(body))
 	return rr, req
+}
+
+func (e *Tester) SyncAccountBalance(t *testing.T, userID string) {
+	t.Helper()
+	_, err := e.DB.Exec(`
+        UPDATE "sufirmart"."account" a
+        SET "current_balance" = (
+            SELECT COALESCE(SUM(t."accrual" - t."withdraw"), 0)
+            FROM "sufirmart"."transaction" t
+            WHERE t."user_id" = a."user_id" AND t."status" = $2
+        )
+        WHERE a."user_id" = $1
+    `, userID, int16(domain.TransactionStatusProcessed))
+	require.NoError(t, err)
 }
 
 func (e *Tester) HaveInDatabase(table string, data map[string]interface{}) error {
@@ -240,6 +255,12 @@ func (e *Tester) SeedUser(t *testing.T, login, password string) string {
 		"password": hash,
 	})
 	require.NoError(t, err)
+
+	err = e.HaveInDatabase(`"sufirmart"."account"`, map[string]interface{}{
+		"user_id": id,
+	})
+	require.NoError(t, err)
+
 	return id
 }
 

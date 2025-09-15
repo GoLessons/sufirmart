@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -10,7 +9,6 @@ import (
 	"sufirmart/internal/auth"
 	"sufirmart/internal/repository"
 	"sufirmart/internal/security"
-	"sufirmart/internal/tools/db"
 )
 
 func NewPostApiUserBalanceWithdrawHandler(accounts *repository.AccountRepository, dbConn *sql.DB) http.HandlerFunc {
@@ -42,27 +40,9 @@ func NewPostApiUserBalanceWithdrawHandler(accounts *repository.AccountRepository
 			return
 		}
 
-		errInsufficient := errors.New("insufficient funds")
-		_, trErr := db.WrapTransaction(ctx, dbConn, &sql.TxOptions{Isolation: sql.LevelSerializable}, func(txCtx context.Context) (any, error) {
-			bal, err := accounts.GetBalance(txCtx, userID)
-			if err != nil {
-				return nil, err
-			}
-
-			if bal.Current() >= float64(req.Sum) {
-				if err := accounts.ApproveTransaction(txCtx, txID, 0.0); err != nil {
-					return nil, err
-				}
-				return nil, nil
-			}
-
-			if err := accounts.CancelTransaction(txCtx, txID, "insufficient funds"); err != nil {
-				return nil, err
-			}
-			return nil, errInsufficient
-		})
-		if trErr != nil {
-			if errors.Is(trErr, errInsufficient) {
+		err = accounts.ApproveTransaction(ctx, txID, 0.0)
+		if err != nil {
+			if errors.Is(err, repository.ErrInsufficientFunds) {
 				http.Error(w, http.StatusText(http.StatusPaymentRequired), http.StatusPaymentRequired)
 				return
 			}

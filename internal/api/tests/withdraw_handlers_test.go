@@ -110,6 +110,8 @@ func TestPostApiUserBalanceWithdraw_Ok_SufficientFunds(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	I.SyncAccountBalance(t, userID)
+
 	orderNum := "79927398713"
 	sum := float32(40.25)
 

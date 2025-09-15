@@ -72,10 +72,19 @@ func (us *UserService) RegisterUser(username string, password string) error {
 		return err
 	}
 
-	// если вставка не удалась и не было ошибок, то такой login уже существует
 	affected, _ := result.RowsAffected()
 	if affected == 0 {
 		return ErrLoginAlreadyExists
+	}
+
+	if _, err := builder.
+		Insert(`"sufirmart"."account"`).
+		Columns("user_id").
+		Values(uid.String()).
+		Suffix(`ON CONFLICT (user_id) DO NOTHING`).
+		RunWith(us.db).
+		ExecContext(ctx); err != nil {
+		return err
 	}
 
 	return nil
