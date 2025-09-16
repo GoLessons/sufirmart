@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"go.uber.org/zap"
 	"sufirmart/internal/accrual"
 	"sufirmart/internal/domain"
@@ -286,14 +287,23 @@ func (p *Processor) RecoverPending(ctx context.Context) error {
 }
 
 func (p *Processor) enqueue(ctx context.Context, number domain.OrderNumber, allowProcessing bool) {
-	if err := p.wp.Add(func() error {
+	err := p.wp.Add(func() error {
 		p.logger.Info("processing order task started", zap.String("order_number", number.String()))
 		p.processOrder(ctx, number, allowProcessing)
 		return nil
-	}); err != nil {
-		p.logger.Error("failed to enqueue order processing task",
-			zap.String("order_number", number.String()),
-			zap.Error(err),
-		)
+	})
+
+	if err != nil {
+		if errors.Is(err, workerpool.ErrQueueFull) {
+			p.logger.Warn("worker pool queue is full; order will be picked up later by recovery",
+				zap.String("order_number", number.String()),
+				zap.Error(err),
+			)
+		} else {
+			p.logger.Error("failed to enqueue order processing task",
+				zap.String("order_number", number.String()),
+				zap.Error(err),
+			)
+		}
 	}
 }

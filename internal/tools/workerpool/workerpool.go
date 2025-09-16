@@ -9,6 +9,8 @@ import (
 type Task func() error
 type OnError func(err error)
 
+var ErrQueueFull = errors.New("workerpool: queue full")
+
 const (
 	stateInit uint32 = iota
 	stateStarted
@@ -72,8 +74,14 @@ func (wp *WorkerPool) Add(task Task) (err error) {
 		}
 	}()
 
-	wp.tasks <- task
-	return nil
+	// Если канал полон, то сразу вернем ошибку
+	select {
+	case wp.tasks <- task:
+		return nil
+	default:
+		wp.wgTasks.Done()
+		return ErrQueueFull
+	}
 }
 
 func (wp *WorkerPool) OnError(onError OnError) {

@@ -78,9 +78,22 @@ func run(c *dependencies.Container) (err error) {
 			ordersRepo := repository.NewOrderRepository(c.Db(), c.Logger())
 			accountsRepo := repository.NewAccountRepository(c.Db(), c.Logger())
 			proc := order.NewProcessor(ordersRepo, accountsRepo, c.AccrualReader(), c.Logger(), c.Db(), wp)
-			if recErr := proc.RecoverPending(ctx); recErr != nil {
-				c.Logger().Error("failed to recover pending orders", zap.Error(recErr))
-			}
+
+			// Периодическое восстановление необработанных заказов
+			ticker := time.NewTicker(5 * time.Second)
+			go func() {
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						if err := proc.RecoverPending(ctx); err != nil {
+							c.Logger().Error("periodic recovery failed", zap.Error(err))
+						}
+					}
+				}
+			}()
 		}
 
 		ln, err := net.Listen("tcp", server.Addr)
