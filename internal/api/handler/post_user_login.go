@@ -1,0 +1,36 @@
+package handler
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"sufirmart/internal/api"
+	"sufirmart/internal/auth"
+)
+
+func NewPostApiUserLoginHandler(authSvc auth.Authentication) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var creds api.UserCredentials
+		if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+		if creds.Login == "" || creds.Password == "" {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+
+		token, err := authSvc.Authenticate(creds.Login, creds.Password)
+		if err != nil {
+			if errors.Is(err, auth.ErrInvalidCredentials) {
+				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+				return
+			}
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Authorization", "Bearer "+token)
+		w.WriteHeader(http.StatusOK)
+	}
+}
